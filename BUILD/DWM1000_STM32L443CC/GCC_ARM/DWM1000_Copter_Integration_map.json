@@ -4,7 +4,7 @@
         "size": {
             ".data": 0, 
             ".bss": 15, 
-            ".text": 157
+            ".text": 145
         }
     }, 
     {
@@ -34,9 +34,9 @@
     {
         "module": "libdw1000/src", 
         "size": {
-            ".data": 0, 
+            ".data": 8, 
             ".bss": 0, 
-            ".text": 7948
+            ".text": 8768
         }
     }, 
     {
@@ -44,7 +44,7 @@
         "size": {
             ".data": 32, 
             ".bss": 592, 
-            ".text": 1912
+            ".text": 2000
         }
     }, 
     {
@@ -89,8 +89,8 @@
     }, 
     {
         "summary": {
-            "static_ram": 10820, 
-            "total_flash": 95566
+            "static_ram": 10828, 
+            "total_flash": 96470
         }
     }
 ]

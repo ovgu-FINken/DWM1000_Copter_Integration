@@ -11,13 +11,8 @@ DigitalIn sIRQ(PA_0);
 DigitalOut sReset(PA_1);
 Serial pc(PA_9, PA_10, 9600);
 
-
-
-
-
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
                                       const void* data, size_t dataLength) {
-
 	cs = 0;
 	uint8_t* headerP = (uint8_t*) header;
 	uint8_t* dataP = (uint8_t*) data;
@@ -28,7 +23,6 @@ static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
 	for(size_t i = 0; i<dataLength; ++i) {
 		spi.write(dataP[i]);
 	}
-
 	cs = 1;
 }
 
@@ -47,7 +41,6 @@ static void spiRead(dwDevice_t* dev, const void *header, size_t headerLength,
 
 	cs = 1;
 }
-
 
 static void spiSetSpeed(dwDevice_t* dev, dwSpiSpeed_t speed)
 {
@@ -77,11 +70,19 @@ static dwOps_t ops = {
   .delayms = delayms,
   .reset = reset
 };
+
 dwDevice_t dwm_device;
 dwDevice_t* dwm = &dwm_device;
 
-void txcallback(dwDevice_t *dev){}
-void rxcallback(dwDevice_t *dev){}
+void txcallback(dwDevice_t *dev)
+{
+  //led = 1;
+}
+void rxcallback(dwDevice_t *dev)
+{
+  led = !led;
+  heartbeat = !heartbeat;
+}
 
 char* txPacket = "foobar";
 
@@ -97,7 +98,7 @@ void send_dummy(dwDevice_t* dev) {
 // main() runs in its own thread in the OS
 int main() {
 
-  bool isSender = true;
+  bool isSender = false;
 
 	heartbeat = 1;
 	sReset = 1;
@@ -114,13 +115,13 @@ int main() {
 
 	dwAttachSentHandler(dwm, txcallback);
 	dwAttachReceivedHandler(dwm, rxcallback);
+  dwInterruptOnReceived(dwm, true);
 
 	dwNewConfiguration(dwm);
 	dwSetDefaults(dwm);
 	dwEnableMode(dwm, MODE_SHORTDATA_FAST_ACCURACY);
 	dwSetChannel(dwm, CHANNEL_2);
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
-
 	dwCommitConfiguration(dwm);
 
   uint8_t sendercount = 0;
@@ -148,6 +149,9 @@ int main() {
       //data[dwGetDataLength(dwm)] = '\0';
       pc.printf("%s\n", data);
       wait(1);
+
+
+      dwHandleInterrupt(dwm);
     }
   }
 

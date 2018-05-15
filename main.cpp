@@ -9,7 +9,9 @@ SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
 DigitalOut cs(SPI_CS);
 DigitalIn sIRQ(PA_0);
 DigitalOut sReset(PA_1);
-Serial pc(PA_9, PA_10, 9600);
+Serial pc(PA_9, PA_10, 38400); // Serial Interface 4 Debug stuff
+Serial copter_data(PA_2, PA_3,38400); // Serial Interface to the Copter
+// static int state = DONE; // state for the Serial parse state machine
 
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
                                       const void* data, size_t dataLength) {
@@ -80,8 +82,34 @@ void txcallback(dwDevice_t *dev)
 }
 void rxcallback(dwDevice_t *dev)
 {
+  //Signal the reception of data by toggeling the leds
+  //print the receved data to the uart
+  //set the state of the module back to recive (keep listening to incoming data)
   led = !led;
   heartbeat = !heartbeat;
+  uint8_t data[dwGetDataLength(dwm)];
+  dwGetData(dwm, data, dwGetDataLength(dwm));
+  pc.printf("Data Received:\r\n");
+  //data[dwGetDataLength(dwm)] = '\0';
+  pc.printf("%s\n", data);
+
+  dwNewReceive(dwm);
+  dwSetDefaults(dwm);
+  dwStartReceive(dwm);
+}
+void serialcallback()
+{
+  // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
+  // for test reasons : just write everithing we recieved here to the debug serial :D
+  //heartbeat = 0;
+  //led = 1;
+  if(copter_data.readable())
+  {
+    uint8_t data[255];
+    //copter_data.read(data, 1);
+    data[0] = copter_data.getc();
+    pc.printf("%x", data[0]);
+  }
 }
 
 char* txPacket = "foobar";
@@ -91,7 +119,6 @@ void send_dummy(dwDevice_t* dev) {
 	dwSetDefaults(dev);
 	dwSetData(dev, (uint8_t*)txPacket, strlen(txPacket));
 	dwStartTransmit(dev);
-
 }
 
 
@@ -124,6 +151,9 @@ int main() {
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
 	dwCommitConfiguration(dwm);
 
+  //copter_data.attach(serialcallback); // if data is recived from the copter to send to the ground station, the serialcallback funktion is called
+  // does not work, the attach callback funkion itself just loops througth itself forever
+
   uint8_t sendercount = 0;
   if(isSender == true){
     while (true) {
@@ -138,20 +168,12 @@ int main() {
     }
   }
   else {
+    dwNewReceive(dwm);
+    dwSetDefaults(dwm);
+    dwStartReceive(dwm);
     while (true){
-      dwNewReceive(dwm);
-      dwSetDefaults(dwm);
-      dwStartReceive(dwm);
-
-      uint8_t data[dwGetDataLength(dwm)];
-      dwGetData(dwm, data, dwGetDataLength(dwm));
-      pc.printf("Data Received:\r\n");
-      //data[dwGetDataLength(dwm)] = '\0';
-      pc.printf("%s\n", data);
-      wait(1);
-
-
       dwHandleInterrupt(dwm);
+      serialcallback();
     }
   }
 

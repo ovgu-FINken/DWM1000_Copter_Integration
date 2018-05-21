@@ -78,7 +78,8 @@ dwDevice_t* dwm = &dwm_device;
 
 void txcallback(dwDevice_t *dev)
 {
-  //led = 1;
+  dwNewReceive(dwm); // go back to recive mode if tx is finished !!!!!!!!
+  dwStartReceive(dwm);
 }
 void rxcallback(dwDevice_t *dev)
 {
@@ -97,20 +98,67 @@ void rxcallback(dwDevice_t *dev)
   dwSetDefaults(dwm);
   dwStartReceive(dwm);
 }
+
+int length;
+int goalLength;
+enum {DONE, SOF, BUSY};
+static int state = DONE;
+uint8_t data[255];
+
+
+void send(dwDevice_t* dev, int length) {
+	dwNewTransmit(dev);
+	dwSetDefaults(dev);
+	dwSetData(dev, data, length);
+	dwStartTransmit(dev);
+}
+
+
 void serialcallback()
 {
   // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
-  // for test reasons : just write everithing we recieved here to the debug serial :D
-  //heartbeat = 0;
-  //led = 1;
   if(copter_data.readable())
   {
-    uint8_t data[255];
-    //copter_data.read(data, 1);
-    data[0] = copter_data.getc();
-    pc.printf("%x", data[0]);
+    switch(state) {
+      case(DONE): {
+        data[0] = copter_data.getc();
+        goalLength = 0;
+        length = 0;
+        if(data[0] == 0x99) {
+          state = SOF;
+          length++;
+        }
+      }break;
+      case(SOF): {
+        data[1] = copter_data.getc();
+        length++;
+        goalLength = data[1];
+        state = BUSY;
+      }break;
+      case(BUSY): {
+        //while(copter_data.readable() && length < goalLength){
+          data[length] = copter_data.getc(); // i have to think about this, if this makes sense ?!? --> is there an other function to read things from serial ?
+          length ++;
+        //}
+        if(length>=goalLength) {
+          //send(txBuffer, length);
+          //for(int i = 0; i<length; i++)
+          //  pc.printf("%x ", data[i]);
+          //pc.printf("%x ", data[0]);
+          //pc.printf("\r\n\r\n");
+          pc.printf("startsend\r\n");
+          send(dwm, length); // send packages
+          pc.printf("sent\r\n");
+
+          state = DONE;
+        }
+      } break;
+    }
   }
+
 }
+
+
 
 char* txPacket = "foobar";
 
@@ -120,6 +168,8 @@ void send_dummy(dwDevice_t* dev) {
 	dwSetData(dev, (uint8_t*)txPacket, strlen(txPacket));
 	dwStartTransmit(dev);
 }
+
+
 
 
 // main() runs in its own thread in the OS
@@ -143,6 +193,7 @@ int main() {
 	dwAttachSentHandler(dwm, txcallback);
 	dwAttachReceivedHandler(dwm, rxcallback);
   dwInterruptOnReceived(dwm, true);
+  dwInterruptOnSent(dwm, true);
 
 	dwNewConfiguration(dwm);
 	dwSetDefaults(dwm);
@@ -151,7 +202,9 @@ int main() {
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
 	dwCommitConfiguration(dwm);
 
-  //copter_data.attach(serialcallback); // if data is recived from the copter to send to the ground station, the serialcallback funktion is called
+  //copter_data.attach(&serialcallback);
+
+    //copter_data.attach(serialcallback); // if data is recived from the copter to send to the ground station, the serialcallback funktion is called
   // does not work, the attach callback funkion itself just loops througth itself forever
 
   uint8_t sendercount = 0;
@@ -172,8 +225,8 @@ int main() {
     dwSetDefaults(dwm);
     dwStartReceive(dwm);
     while (true){
-      dwHandleInterrupt(dwm);
-      serialcallback();
+      dwHandleInterrupt(dwm); // check dwm status, if rx incoming, go to rx callback, if tx finished, go to txcallback and turn mode back to recive
+      serialcallback(); // go to the serial parsing statemashine
     }
   }
 

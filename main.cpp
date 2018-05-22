@@ -88,11 +88,11 @@ void rxcallback(dwDevice_t *dev)
   //set the state of the module back to recive (keep listening to incoming data)
   led = !led;
   heartbeat = !heartbeat;
-  uint8_t data[dwGetDataLength(dwm)];
-  dwGetData(dwm, data, dwGetDataLength(dwm));
+  uint8_t recievedData[dwGetDataLength(dwm)];
+  dwGetData(dwm, recievedData, dwGetDataLength(dwm));
   pc.printf("Data Received:\r\n");
   //data[dwGetDataLength(dwm)] = '\0';
-  pc.printf("%s\n", data);
+  pc.printf("%s\n", recievedData);
 
   dwNewReceive(dwm);
   dwSetDefaults(dwm);
@@ -141,7 +141,6 @@ void serialcallback()
           length ++;
         //}
         if(length>=goalLength) {
-          //send(txBuffer, length);
           //for(int i = 0; i<length; i++)
           //  pc.printf("%x ", data[i]);
           //pc.printf("%x ", data[0]);
@@ -177,6 +176,7 @@ int main() {
 
   bool isSender = false;
 
+
 	heartbeat = 1;
 	sReset = 1;
 	cs = 1;
@@ -201,7 +201,7 @@ int main() {
 	dwSetChannel(dwm, CHANNEL_2);
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
 	dwCommitConfiguration(dwm);
-
+  wait(0.5f);
   //copter_data.attach(&serialcallback);
 
     //copter_data.attach(serialcallback); // if data is recived from the copter to send to the ground station, the serialcallback funktion is called

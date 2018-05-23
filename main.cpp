@@ -8,7 +8,7 @@ DigitalOut led(LED1);
 SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
 DigitalOut cs(SPI_CS);
 DigitalIn sIRQ(PA_0);
-DigitalOut sReset(PA_1);
+DigitalInOut sReset(PA_1);
 Serial pc(PA_9, PA_10, 38400); // Serial Interface 4 Debug stuff
 Serial copter_data(PA_2, PA_3,38400); // Serial Interface to the Copter
 // static int state = DONE; // state for the Serial parse state machine
@@ -55,9 +55,10 @@ static void spiSetSpeed(dwDevice_t* dev, dwSpiSpeed_t speed)
 
 static void reset(dwDevice_t* dev)
 {
-	sReset = 0;
-	wait(0.5);
-	sReset = 1;
+	sReset.output();
+  sReset = 0;
+	wait(0.1);
+  sReset.input();
 }
 
 static void delayms(dwDevice_t* dev, unsigned int delay)
@@ -181,7 +182,7 @@ int main() {
 
 
 	heartbeat = 1;
-	sReset = 1;
+	sReset.input();
 	cs = 1;
 	dwInit(dwm, &ops);       // Init libdw
 	uint8_t result = dwConfigure(dwm); // Configure the dw1000 chip
@@ -229,7 +230,8 @@ int main() {
     dwSetDefaults(dwm);
     dwStartReceive(dwm);
     while (true){
-      dwHandleInterrupt(dwm); // check dwm status, if rx incoming, go to rx callback, if tx finished, go to txcallback and turn mode back to recive
+      if(sIRQ == 1)
+        dwHandleInterrupt(dwm); // check dwm status, if rx incoming, go to rx callback, if tx finished, go to txcallback and turn mode back to recive
       serialcallback(); // go to the serial parsing statemashine
     }
   }

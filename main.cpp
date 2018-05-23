@@ -91,8 +91,11 @@ void rxcallback(dwDevice_t *dev)
   uint8_t recievedData[dwGetDataLength(dwm)];
   dwGetData(dwm, recievedData, dwGetDataLength(dwm));
   pc.printf("Data Received:\r\n");
-  //data[dwGetDataLength(dwm)] = '\0';
-  pc.printf("%s\n", recievedData);
+  int length = sizeof(recievedData);
+  for(int i = 0; i<length; i++)
+    pc.printf("%x ", recievedData[i]);
+  pc.printf("\r\n\r\n");
+  //pc.printf("%s\n", recievedData);
 
   dwNewReceive(dwm);
   dwSetDefaults(dwm);
@@ -202,6 +205,7 @@ int main() {
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
 	dwCommitConfiguration(dwm);
   wait(0.5f);
+
   //copter_data.attach(&serialcallback);
 
     //copter_data.attach(serialcallback); // if data is recived from the copter to send to the ground station, the serialcallback funktion is called

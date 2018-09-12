@@ -190,8 +190,8 @@ int main() {
 
 	dwNewConfiguration(dwm);
 	dwSetDefaults(dwm);
-	dwEnableMode(dwm, MODE_SHORTDATA_FAST_ACCURACY);
-	dwSetChannel(dwm, CHANNEL_2);
+	dwEnableMode(dwm, MODE_SHORTDATA_MID_ACCURACY);
+	dwSetChannel(dwm, CHANNEL_7);
 	dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
 	dwCommitConfiguration(dwm);
   wait(0.5f);

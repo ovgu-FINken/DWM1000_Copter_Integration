@@ -35,6 +35,8 @@ extern const uint8_t MODE_LONGDATA_FAST_LOWPOWER[];
 extern const uint8_t MODE_SHORTDATA_FAST_ACCURACY[];
 extern const uint8_t MODE_LONGDATA_FAST_ACCURACY[];
 extern const uint8_t MODE_LONGDATA_RANGE_ACCURACY[];
+extern const uint8_t MODE_SHORTDATA_MID_ACCURACY[];
+extern const uint8_t MODE_LONGDATA_MID_ACCURACY[];
 
 /**
  * Initialize the device data structure.
@@ -174,6 +176,11 @@ float dwGetReceivePower(dwDevice_t* dev);
 void dwEnableMode(dwDevice_t *dev, const uint8_t mode[]);
 void dwTune(dwDevice_t *dev);
 void dwHandleInterrupt(dwDevice_t *dev);
+
+/**
+ * Set the value of the TXPower register
+ */
+void dwSetTxPower(dwDevice_t *dev, uint32_t txPower);
 
 void dwAttachSentHandler(dwDevice_t *dev, dwHandler_t handler);
 void dwAttachReceivedHandler(dwDevice_t *dev, dwHandler_t handler);

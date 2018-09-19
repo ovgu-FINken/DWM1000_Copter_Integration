@@ -42,6 +42,8 @@ const uint8_t MODE_LONGDATA_FAST_LOWPOWER[] = {TRX_RATE_6800KBPS, TX_PULSE_FREQ_
 const uint8_t MODE_SHORTDATA_FAST_ACCURACY[] = {TRX_RATE_6800KBPS, TX_PULSE_FREQ_64MHZ, TX_PREAMBLE_LEN_128};
 const uint8_t MODE_LONGDATA_FAST_ACCURACY[] = {TRX_RATE_6800KBPS, TX_PULSE_FREQ_64MHZ, TX_PREAMBLE_LEN_1024};
 const uint8_t MODE_LONGDATA_RANGE_ACCURACY[] = {TRX_RATE_110KBPS, TX_PULSE_FREQ_64MHZ, TX_PREAMBLE_LEN_2048};
+const uint8_t MODE_SHORTDATA_MID_ACCURACY[] = {TRX_RATE_850KBPS, TX_PULSE_FREQ_64MHZ, TX_PREAMBLE_LEN_128};
+const uint8_t MODE_LONGDATA_MID_ACCURACY[] = {TRX_RATE_850KBPS, TX_PULSE_FREQ_64MHZ, TX_PREAMBLE_LEN_1024};
 
 // Useful shortcuts
 #define delayms(delay) dev->ops->delayms(dev, delay)
@@ -50,6 +52,8 @@ const uint8_t MODE_LONGDATA_RANGE_ACCURACY[] = {TRX_RATE_110KBPS, TX_PULSE_FREQ_
 static void setBit(uint8_t data[], unsigned int n, unsigned int bit, bool val);
 static void writeValueToBytes(uint8_t data[], long val, unsigned int n);
 static bool getBit(uint8_t data[], unsigned int n, unsigned int bit);
+
+static void readBytesOTP(dwDevice_t* dev, uint16_t address, uint8_t data[]);
 
 static void dummy(){
   ;
@@ -72,6 +76,8 @@ void dwInit(dwDevice_t* dev, dwOps_t* ops)
   dev->frameCheck = true;
   dev->permanentReceive = false;
   dev->deviceMode = IDLE_MODE;
+
+  dev->forceTxPower = false;
 
   writeValueToBytes(dev->antennaDelay.raw, 16384, LEN_STAMP);
 
@@ -243,6 +249,20 @@ void dwSoftReset(dwDevice_t* dev)
   dwIdle(dev);
 }
 
+/**
+ Reset the receiver. Needed after errors or timeouts.
+ From the DW1000 User Manual, v2.13 page 35: "Due to an issue in the re-initialisation of the receiver, it is necessary to apply a receiver reset after certain receiver error or timeout events (i.e. RXPHE (PHY Header Error), RXRFSL (Reed Solomon error), RXRFTO (Frame wait timeout), etc.). This ensures that the next good frame will have correctly calculated timestamp. It is not necessary to do this in the cases of RXPTO (Preamble detection Timeout) and RXSFDTO (SFD timeout). For details on how to apply a receiver-only reset see SOFTRESET field of Sub- Register 0x36:00 – PMSC_CTRL0."
+ */
+void dwRxSoftReset(dwDevice_t* dev) {
+	uint8_t pmscctrl0[LEN_PMSC_CTRL0];
+	dwSpiRead(dev, PMSC, PMSC_CTRL0_SUB, pmscctrl0, LEN_PMSC_CTRL0);
+
+	pmscctrl0[3] = pmscctrl0[3] & 0xEF;
+	dwSpiWrite(dev, PMSC, PMSC_CTRL0_SUB, pmscctrl0, LEN_PMSC_CTRL0);
+	pmscctrl0[3] = pmscctrl0[3] | 0x10;
+	dwSpiWrite(dev, PMSC, PMSC_CTRL0_SUB, pmscctrl0, LEN_PMSC_CTRL0);
+}
+
 /* ###########################################################################
  * #### DW1000 register read/write ###########################################
  * ######################################################################### */
@@ -352,10 +372,13 @@ void dwInterruptOnReceiveFailed(dwDevice_t* dev, bool val) {
 	setBit(dev->sysmask, LEN_SYS_STATUS, RXFCE_BIT, val);
 	setBit(dev->sysmask, LEN_SYS_STATUS, RXPHE_BIT, val);
 	setBit(dev->sysmask, LEN_SYS_STATUS, RXRFSL_BIT, val);
+	setBit(dev->sysmask, LEN_SYS_MASK, RXSFDTO_BIT, val);
+	setBit(dev->sysmask, LEN_SYS_MASK, AFFREJ_BIT, val);
 }
 
 void dwInterruptOnReceiveTimeout(dwDevice_t* dev, bool val) {
 	setBit(dev->sysmask, LEN_SYS_MASK, RXRFTO_BIT, val);
+	setBit(dev->sysmask, LEN_SYS_MASK, RXPTO_BIT, val);
 }
 
 void dwInterruptOnReceiveTimestampAvailable(dwDevice_t* dev, bool val) {
@@ -747,15 +770,16 @@ bool dwIsReceiveDone(dwDevice_t* dev) {
 }
 
 bool dwIsReceiveFailed(dwDevice_t *dev) {
-	bool ldeErr, rxCRCErr, rxHeaderErr, rxDecodeErr;
-	ldeErr = getBit(dev->sysstatus, LEN_SYS_STATUS, LDEERR_BIT);
-	rxCRCErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXFCE_BIT);
-	rxHeaderErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXPHE_BIT);
-	rxDecodeErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXRFSL_BIT);
-	if(ldeErr || rxCRCErr || rxHeaderErr || rxDecodeErr) {
-		return true;
-	}
-	return false;
+	bool ldeErr = getBit(dev->sysstatus, LEN_SYS_STATUS, LDEERR_BIT);
+	bool rxCRCErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXFCE_BIT);
+	bool rxHeaderErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXPHE_BIT);
+	bool rxDecodeErr = getBit(dev->sysstatus, LEN_SYS_STATUS, RXRFSL_BIT);
+
+
+	bool rxSfdto = getBit(dev->sysstatus, LEN_SYS_STATUS, RXSFDTO_BIT);
+	bool affrej = getBit(dev->sysstatus, LEN_SYS_STATUS, AFFREJ_BIT);
+
+	return (ldeErr || rxCRCErr || rxHeaderErr || rxDecodeErr || rxSfdto || affrej);
 }
 
 bool dwIsReceiveTimeout(dwDevice_t* dev) {
@@ -786,26 +810,14 @@ void dwClearReceiveTimestampAvailableStatus(dwDevice_t* dev) {
 
 void dwClearReceiveStatus(dwDevice_t* dev) {
 	// clear latched RX bits (i.e. write 1 to clear)
-  uint8_t reg[LEN_SYS_STATUS] = {0};
-	setBit(reg, LEN_SYS_STATUS, RXDFR_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, LDEDONE_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, LDEERR_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, RXPHE_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, RXFCE_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, RXFCG_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, RXRFSL_BIT, true);
-  setBit(reg, LEN_SYS_STATUS, RXRFTO_BIT, true);
-	dwSpiWrite(dev, SYS_STATUS, NO_SUB, reg, LEN_SYS_STATUS);
+	uint32_t regData = SYS_STATUS_ALL_RX_TO | SYS_STATUS_ALL_RX_ERR | SYS_STATUS_ALL_RX_GOOD;
+	dwSpiWrite32(dev, SYS_STATUS, NO_SUB, regData);
 }
 
 void dwClearTransmitStatus(dwDevice_t* dev) {
 	// clear latched TX bits
-  uint8_t reg[LEN_SYS_STATUS] = {0};
-	setBit(reg, LEN_SYS_STATUS, TXFRB_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, TXPRS_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, TXPHS_BIT, true);
-	setBit(reg, LEN_SYS_STATUS, TXFRS_BIT, true);
-	dwSpiWrite(dev, SYS_STATUS, NO_SUB, reg, LEN_SYS_STATUS);
+	uint32_t regData = SYS_STATUS_ALL_TX;
+	dwSpiWrite32(dev, SYS_STATUS, NO_SUB, regData);
 }
 
 float dwGetReceiveQuality(dwDevice_t* dev) {
@@ -899,7 +911,7 @@ void dwTune(dwDevice_t *dev) {
 	uint8_t tcpgdelay[LEN_TC_PGDELAY];
 	uint8_t fspllcfg[LEN_FS_PLLCFG];
 	uint8_t fsplltune[LEN_FS_PLLTUNE];
-	// uint8_t fsxtalt[LEN_FS_XTALT];
+	uint8_t fsxtalt[LEN_FS_XTALT];
 	// AGC_TUNE1
 	if(dev->pulseFrequency == TX_PULSE_FREQ_16MHZ) {
 		writeValueToBytes(agctune1, 0x8870, LEN_AGC_TUNE1);
@@ -1134,7 +1146,9 @@ void dwTune(dwDevice_t *dev) {
 		// TODO proper error/warning handling
 	}
 	// TX_POWER (enabled smart transmit power control)
-	if(dev->channel == CHANNEL_1 || dev->channel == CHANNEL_2) {
+  if(dev->forceTxPower) {
+    writeValueToBytes(txpower, dev->txPower, LEN_TX_POWER);
+  } else if(dev->channel == CHANNEL_1 || dev->channel == CHANNEL_2) {
 		if(dev->pulseFrequency == TX_PULSE_FREQ_16MHZ) {
 			if(dev->smartPower) {
 				writeValueToBytes(txpower, 0x15355575L, LEN_TX_POWER);
@@ -1217,8 +1231,15 @@ void dwTune(dwDevice_t *dev) {
 	} else {
 		// TODO proper error/warning handling
 	}
-	// mid range XTAL trim (TODO here we assume no calibration data available in OTP)
-	//writeValueToBytes(fsxtalt, 0x60, LEN_FS_XTALT);
+	// Crystal calibration from OTP (if available)
+  uint8_t buf_otp[4];
+  readBytesOTP(dev, 0x01E, buf_otp);
+  if (buf_otp[0] == 0) {
+    // No trim value available from OTP, use midrange value of 0x10
+    writeValueToBytes(fsxtalt, ((0x10 & 0x1F) | 0x60), LEN_FS_XTALT);
+  } else {
+    writeValueToBytes(fsxtalt, ((buf_otp[0] & 0x1F) | 0x60), LEN_FS_XTALT);
+  }
 	// write configuration back to chip
 	dwSpiWrite(dev, AGC_TUNE, AGC_TUNE1_SUB, agctune1, LEN_AGC_TUNE1);
 	dwSpiWrite(dev, AGC_TUNE, AGC_TUNE2_SUB, agctune2, LEN_AGC_TUNE2);
@@ -1237,7 +1258,7 @@ void dwTune(dwDevice_t *dev) {
 	dwSpiWrite(dev, TX_CAL, TC_PGDELAY_SUB, tcpgdelay, LEN_TC_PGDELAY);
 	dwSpiWrite(dev, FS_CTRL, FS_PLLTUNE_SUB, fsplltune, LEN_FS_PLLTUNE);
 	dwSpiWrite(dev, FS_CTRL, FS_PLLCFG_SUB, fspllcfg, LEN_FS_PLLCFG);
-	//dwSpiWrite(dev, FS_CTRL, FS_XTALT_SUB, fsxtalt, LEN_FS_XTALT);
+	dwSpiWrite(dev, FS_CTRL, FS_XTALT_SUB, fsxtalt, LEN_FS_XTALT);
 }
 
 // FIXME: This is a test!
@@ -1258,19 +1279,25 @@ void dwHandleInterrupt(dwDevice_t *dev) {
     dwClearReceiveTimestampAvailableStatus(dev);
 		(*_handleReceiveTimestampAvailable)();
 	}
-	if(dwIsReceiveFailed(dev) && dev->handleReceiveFailed != 0) {
-    dwClearReceiveStatus(dev);
-		dev->handleReceiveFailed(dev);
-		if(dev->permanentReceive) {
-			dwNewReceive(dev);
-			dwStartReceive(dev);
+	if(dwIsReceiveFailed(dev)) {
+		dwClearReceiveStatus(dev);
+		dwRxSoftReset(dev); // Needed due to error in the RX auto-re-enable functionality. See page 35 of DW1000 manual, v2.13.
+		if(dev->handleReceiveFailed != 0) {
+			dev->handleReceiveFailed(dev);
+			if(dev->permanentReceive) {
+				dwNewReceive(dev);
+				dwStartReceive(dev);
+			}
 		}
-	} else if(dwIsReceiveTimeout(dev) && dev->handleReceiveTimeout != 0) {
-    dwClearReceiveStatus(dev);
-		(*dev->handleReceiveTimeout)(dev);
-		if(dev->permanentReceive) {
-			dwNewReceive(dev);
-			dwStartReceive(dev);
+	} else if(dwIsReceiveTimeout(dev)) {
+		dwClearReceiveStatus(dev);
+		dwRxSoftReset(dev); // Needed due to error in the RX auto-re-enable functionality. See page 35 of DW1000 manual, v2.13.
+		if(dev->handleReceiveTimeout != 0) {
+			(*dev->handleReceiveTimeout)(dev);
+			if(dev->permanentReceive) {
+				dwNewReceive(dev);
+				dwStartReceive(dev);
+			}
 		}
 	} else if(dwIsReceiveDone(dev) && dev->handleReceived != 0) {
     dwClearReceiveStatus(dev);
@@ -1280,6 +1307,12 @@ void dwHandleInterrupt(dwDevice_t *dev) {
 			dwStartReceive(dev);
 		}
 	}
+}
+
+void dwSetTxPower(dwDevice_t *dev, uint32_t txPower)
+{
+  dev->forceTxPower = true;
+  dev->txPower = txPower;
 }
 
 void dwAttachSentHandler(dwDevice_t *dev, dwHandler_t handler)
@@ -1347,4 +1380,22 @@ static void writeValueToBytes(uint8_t data[], long val, unsigned int n) {
 	for(i = 0; i < n; i++) {
 		data[i] = ((val >> (i * 8)) & 0xFF);
 	}
+}
+
+static void readBytesOTP(dwDevice_t* dev, uint16_t address, uint8_t data[]) {
+	uint8_t addressBytes[LEN_OTP_ADDR];
+
+	// p60 - 6.3.3 Reading a value from OTP memory
+	// bytes of address
+	addressBytes[0] = (address & 0xFF);
+	addressBytes[1] = ((address >> 8) & 0xFF);
+	// set address
+	dwSpiWrite(dev, OTP_IF, OTP_ADDR_SUB, addressBytes, LEN_OTP_ADDR);
+	// switch into read mode
+	dwSpiWrite8(dev, OTP_IF, OTP_CTRL_SUB, 0x03); // OTPRDEN | OTPREAD
+	dwSpiWrite8(dev, OTP_IF, OTP_CTRL_SUB, 0x01); // OTPRDEN
+	// read value/block - 4 bytes
+	dwSpiRead(dev, OTP_IF, OTP_RDAT_SUB, data, LEN_OTP_RDAT);
+	// end read mode
+	dwSpiWrite8(dev, OTP_IF, OTP_CTRL_SUB, 0x00);
 }

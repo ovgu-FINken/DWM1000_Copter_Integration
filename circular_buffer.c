@@ -1,4 +1,4 @@
-#include "circularBuffer.h"
+#include "circular_buffer.h"
 
 enum circularBufferStatus circularBuffer_status(struct circularBuffer* cb) {
     if(cb->head == cb->tail)

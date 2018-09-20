@@ -16,6 +16,8 @@ circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
 uint8_t DWMcb_data[256];
+EventQueue queue(8 * EVENTS_EVENT_SIZE);
+Thread t;
 
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
@@ -135,12 +137,17 @@ int goalLength;
 enum {DONE, SOF, BUSY};
 static int state = DONE;
 
-void send(dwDevice_t* dev, uint8_t* data, int length) {
-    dwNewTransmit(dev);
-    dwSetData(dev, data, length);
-    dwStartTransmit(dev);
+void sendDWM(uint8_t* data, int length) {
+    dwNewTransmit(dwm);
+    dwSetData(dwm, data, length);
+    dwStartTransmit(dwm);
 }
 
+void sendUART(uint8_t* data, int length) {
+    for(uint8_t i = 0; i<length; i++) {
+        uart1.putc(data[i]);
+    }
+}
 
 void serialRead() {
     // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
@@ -168,7 +175,7 @@ void serialRead() {
                             data[length] = uart1.getc(); // i have to think about this, if this makes sense ?!? --> is there an other function to read things from serial ?
                             length ++;
                             if(length>=goalLength) {
-                                send(dwm, length); // send packages
+                                sendDWM($data$, length); // send packages
                                 state = DONE;
                             }
                         } break;
@@ -211,24 +218,56 @@ void initialiseBuffers(){
     circularBuffer_init(&UARTcb, UARTcb_data, 256);
     circularBuffer_init(&DWMcb, DWMcb_data, 256);
 }
+
+uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
+    if(circularBuffer_peek(cb, 0) != 0x99)
+        return 0;
+    uint8_t l = circularBuffer_peek(cb, 1);
+    if(l < fill)
+        return 0;
+    return l;
+}
+
+uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
+    while(circularBuffer_status(cb)!=circularBuffer_EMPTY && circularBuffer_peek(cb, 0)!=0x99) {
+        circularBuffer_read_element(cb);
+    }
+    size_t fill = circularBuffer_fill(cb);
+    if(fill < 3) {
+        return 0;
+    } 
+    uint8_t l = check_pprz(cb, 0, fill);
+    if(l) {
+        if(l > fill)
+            return 0;
+        for(size_t j=0; j<l; j++) {
+            out[j] = circularBuffer_read_element(cb);
+        }
+        debugLed = !debugLed;
+        return l;
+    }
+    return 0;
+}
+
 int main() {
+    initialiseBuffers();
+    t.start(callback(&queue, &EventQueue::dispatch_forever));
     initialiseDWM();
 
     dwNewReceive(dwm);
     dwStartReceive(dwm);
-    sIRQ.rise(&dwIRQFunction);
+    sIRQ.rise(queue.event(&dwIRQFunction));
     while (true){
         serialRead(); // go to the serial parsing statemashine
-        uint8_t DWMWriteBuffer[255];
-        uint8_t i = 0;
+        uint8_t WriteBuffer[255];
         // write to dwm
-        while(circularBuffer_status(&UARTcb)!=circularBuffer_EMPTY) {
-            DWMWriteBuffer[i++] = circularBuffer_read_element(&UARTcb);
+        size_t l = parsePPRZ(&UARTcb, WriteBuffer);
+        if(l){
+            sendDWM(WriteBuffer, l);
         }
-        send(dwm, (uint8_t*) DWMWriteBuffer, i);
-        
-        while(circularBuffer_status(&DWMcb) != circularBuffer_EMPTY) {
-            uart1.putc(circularBuffer_read_element(&DWMcb));
+        l = parsePPRZ(&DWMcb, WriteBuffer);
+        if(l){
+            sendUART(WriteBuffer, l);
         }
     }
 }

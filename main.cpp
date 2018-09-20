@@ -1,9 +1,8 @@
+#include "mbed.h"
 extern "C" {
 #include "libdw1000.h"
-#include "circularBuffer.h"
+#include "circular_buffer.h"
 }
-#include "platform/CircularBuffer.h"
-#include "mbed.h"
 
 
 DigitalOut txLed(LED2);

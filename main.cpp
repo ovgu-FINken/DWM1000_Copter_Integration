@@ -4,9 +4,10 @@ extern "C" {
 #include "circular_buffer.h"
 }
 
+#define ADDR 1
 
-DigitalOut txLed(LED2);
-DigitalOut debugLed(LED1);
+DigitalOut redLed(LED2);
+DigitalOut greenLed(LED1);
 SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
 DigitalOut cs(SPI_CS);
 InterruptIn sIRQ(PA_0);
@@ -17,8 +18,11 @@ circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
 uint8_t DWMcb_data[256];
-EventQueue queue(8 * EVENTS_EVENT_SIZE);
+Mutex DWMMutex; // protect write and receive operations
+EventQueue IRQqueue(8 * EVENTS_EVENT_SIZE);
 Thread t;
+void dwIRQFunction();
+void DWMReceive();
 
 /* variables for ranging*/
 
@@ -40,13 +44,14 @@ uint64_t tRound2;
 uint64_t tReply2;
 long double tPropTick;
 typedef struct __attribute__((packed, aligned(1))) DataFrame {
-    uint8_t source;
-    uint8_t destination;
+    uint8_t src;
+    uint8_t dest;
     uint8_t type;
-    uint8_t number; 
+    uint8_t seq; 
     uint8_t data[15];
 }DFrame;
-DFrame frame;
+DFrame txFrame;
+DFrame rxFrame;
 
 void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result){
 
@@ -67,6 +72,7 @@ void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
     cs = 0;
+    spi.lock();
     uint8_t* headerP = (uint8_t*) header;
     uint8_t* dataP = (uint8_t*) data;
 
@@ -76,12 +82,14 @@ static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
     for(size_t i = 0; i<dataLength; ++i) {
         spi.write(dataP[i]);
     }
+    spi.unlock();
     cs = 1;
 }
 
 static void spiRead(dwDevice_t* dev, const void *header, size_t headerLength,
         void* data, size_t dataLength) {
     cs = 0;
+    spi.lock();
     uint8_t* headerP = (uint8_t*) header;
     uint8_t* dataP = (uint8_t*) data;
 
@@ -91,7 +99,7 @@ static void spiRead(dwDevice_t* dev, const void *header, size_t headerLength,
     for(size_t i = 0; i<dataLength; ++i) {
         dataP[i] = spi.write(0);
     }
-
+    spi.unlock();
     cs = 1;
 }
 
@@ -108,7 +116,7 @@ static void reset(dwDevice_t* dev)
 {
     sReset.output();
     sReset = 0;
-    wait(0.1);
+    wait(0.5f);
     sReset.input();
 }
 
@@ -135,38 +143,70 @@ enum FrameType{
     RANGE_3=3,
     RANGE_TRANSFER=4,
     RANGE_DATA=5,
-    DATA_FRAME=42
+    DATA_FRAME=42,
+    DISCOVER=255
 };
 
-void send_rp(FrameType type) {
+void sendDWM(uint8_t* data, int length) {
+    DWMMutex.lock();
+    spi.lock();
     dwNewTransmit(dwm);
-    frame.type = type;
-    dwSetData(dwm, (uint8_t*) &frame, NO_DATA_FRAME_SIZE);
+    dwSetData(dwm, data, length);
     dwStartTransmit(dwm);
+    spi.unlock();
+    DWMMutex.unlock();
+}
+
+void send_rp(FrameType type) {
+    txFrame.type = type;
+    txFrame.src = ADDR;
+    txFrame.dest = rxFrame.src;
+    txFrame.seq++;
+    sendDWM((uint8_t*)&txFrame, NO_DATA_FRAME_SIZE);
 }
 
 void send_range_transfer() {
+    DWMMutex.lock();
     dwGetReceiveTimestamp(dwm, &tEndRound2);
-   	frame.type = RANGE_TRANSFER;
-	memcpy(frame.data, tStartReply1.raw, 5);
-	memcpy((frame.data+5), tEndReply1.raw, 5);
-	memcpy((frame.data+10), tEndRound2.raw, 5);
-	dwSetData(dwm, (uint8_t*)&frame, sizeof(frame));
-	dwNewTransmit(dwm);
-    dwStartTransmit(dwm);  
+    DWMMutex.unlock();
+   	txFrame.type = RANGE_TRANSFER;
+    txFrame.src = ADDR;
+    txFrame.dest = rxFrame.src;
+    txFrame.seq++;
+	memcpy(txFrame.data, tStartReply1.raw, 5);
+	memcpy((txFrame.data+5), tEndReply1.raw, 5);
+	memcpy((txFrame.data+10), tEndRound2.raw, 5);
+    sendDWM((uint8_t *)&txFrame, 19);
+}
+
+void send_range(long double range) {
+   	txFrame.type = RANGE_DATA;
+    txFrame.src = ADDR;
+    txFrame.dest = rxFrame.src;
+    txFrame.seq++;
+	memcpy(txFrame.data, &range, sizeof(range));
+    sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(range));
+     
 }
 
 void startRanging() {
+    if(ADDR == 1) {
+        return;
+    }
+    rxFrame.src = 1;
     send_rp(RANGE_0);
 }
 
-void calculate_range() {
+long double calculate_range() {
    
-	dwGetData(dwm, (uint8_t*)&frame, sizeof(frame));
+    uint8_t DataBuffer[15];
+    DWMMutex.lock();
+	dwGetData(dwm, DataBuffer, 15);
+    DWMMutex.unlock();
 
-	memcpy(tStartReply1.raw, frame.data, 5);
-	memcpy(tEndReply1.raw, (frame.data+5), 5);
-	memcpy(tEndRound2.raw, (frame.data+10), 5);
+	memcpy(tStartReply1.raw, DataBuffer, 5);
+	memcpy(tEndReply1.raw, (DataBuffer+5), 5);
+	memcpy(tEndRound2.raw, (DataBuffer+10), 5);
 
 	calculateDeltaTime(&tStartRound1, &tStartReply2, &tRound1);
 	calculateDeltaTime(&tStartReply1, &tEndReply1, &tReply1);
@@ -180,20 +220,23 @@ void calculate_range() {
 	long double distance = (tPropTime * speedOfLight);// - 154.03; //~0.3 m per nanosecond; offset 154.03 calculated at ~1 cm distance
  
 	uart2.printf("%0.12Lf,%Lf;\r\n",tPropTime, distance);
+    uart2.printf("%fs (tReply 1)\r\n", tReply1/tsfreq);
+    uart2.printf("%fs (tReply 2)\r\n", tReply2/tsfreq);
+    uart2.printf("%fs (tRound 1)\r\n", tRound1/tsfreq);
+    uart2.printf("%fs (tRound 2)\r\n", tRound2/tsfreq);
 	//pc.printf(" is Distance in m\r\n", distance);
 	/*
 	pc.printf("%"PRIu64"\r\n",tRound1);
 	pc.printf("%"PRIu64"\r\n",tReply1);
 	pc.printf("%"PRIu64"\r\n",tReply2);
 	pc.printf("%"PRIu64"\r\n",tRound2);
-	
-	pc.printf("%"PRIu64"\n",tStartRound1);
-	pc.printf("%"PRIu64"\n",tEndRound1);
-	pc.printf("%"PRIu64"\n",tStartReply1);
-    pc.printf("%"PRIu64"\n",tEndReply1);
-	pc.printf("%"PRIu64"\n",tEndRound2);
-	pc.printf("%"PRIu64"\n",tEndReply2);
-	*/
+*/	
+	uart2.printf("%" PRIu64 "\r\n",tStartRound1);
+	uart2.printf("%" PRIu64 "\r\n",tStartReply2);
+	uart2.printf("%" PRIu64 "\r\n",tEndReply2);
+	uart2.printf("%" PRIu64 "\r\n",tStartReply1);
+    uart2.printf("%" PRIu64 "\r\n",tEndReply1);
+	uart2.printf("%" PRIu64 "\r\n",tEndRound2);
 	tStartRound1.full = 0;
 	tEndRound1.full = 0;
 	tStartReply1.full = 0;
@@ -201,16 +244,22 @@ void calculate_range() {
 	tStartRound2.full = 0;
 	tEndRound2.full = 0;
 	tStartReply2.full = 0;
-tEndReply2.full = 0; 
+    tEndReply2.full = 0; 
+    return distance;
+}
+void DWMReceive() {
+    DWMMutex.lock(); 
+    dwNewReceive(dwm);
+    //dwSetDefaults(dwm);
+    dwStartReceive(dwm);
+    DWMMutex.unlock();
 }
 
 void txcallback(dwDevice_t *dev){
-    /*
-       dwNewReceive(dwm);
-       dwStartReceive(dwm);
-       */
-    switch(frame.type) {
+    DWMMutex.lock();
+    switch(txFrame.type) {
         case RANGE_0:
+            greenLed = 1;
             dwGetTransmitTimestamp(dev, &tStartRound1);
             break;
         case RANGE_1:
@@ -222,10 +271,13 @@ void txcallback(dwDevice_t *dev){
             dwGetTransmitTimestamp(dev, &tEndReply2);
             break;
     }
+    DWMMutex.unlock();
+    DWMReceive();
 }
+uint8_t Buffer[128];
 void handle_data_frame() {
+    DWMMutex.lock();
     uint8_t length = dwGetDataLength(dwm);
-    uint8_t Buffer[128];
     while(length > 128) {
         dwGetData(dwm, Buffer, 128);
         for(uint8_t i = 0; i<128; ++i) {
@@ -234,18 +286,34 @@ void handle_data_frame() {
         length -= 128;
     }
     dwGetData(dwm, Buffer, length);
+    DWMMutex.unlock();
     for(uint8_t i = 0; i<length; ++i) {
         circularBuffer_write_element(&DWMcb, Buffer[i]);
     }
+    DWMReceive();
+}
+void receive_range_answer() {
+    long double range;
+    DWMMutex.lock();
+    dwGetData(dwm, (uint8_t*) &range, sizeof(long double));
+    DWMMutex.unlock();
+    uart2.printf("received distance %d\n", range);
 }
 
 //Signal the reception of data by toggeling the leds
 //print the receved data to the uart
 //set the state of the module back to recive (keep listening to incoming data)
+DFrame garbage;
 void rxcallback(dwDevice_t *dev)
-{
-    dwGetData(dwm, (uint8_t*) &frame, NO_DATA_FRAME_SIZE);
-    switch(frame.type) {
+{ 
+    DWMMutex.lock();
+    dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
+    DWMMutex.unlock();
+    if(rxFrame.src == ADDR) {
+        uart2.printf("received own packet - shouldn't happen\npossibly the address was given to multiple nodes");
+        return;
+    }
+    switch(rxFrame.type) {
         case DATA_FRAME:
             handle_data_frame();
             break;
@@ -253,33 +321,31 @@ void rxcallback(dwDevice_t *dev)
             send_rp(RANGE_1);
             break;
         case RANGE_1:
+            greenLed = 0;
             send_rp(RANGE_2);
             break;
         case RANGE_2:
+            //send_rp(RANGE_TRANSFER);
             send_range_transfer();
+            redLed = !redLed;
             break;
-        case RANGE_TRANSFER:
-            calculate_range();
-            //send_range_answer();
+        case RANGE_TRANSFER: {
+            redLed = !redLed;
+            long double range = calculate_range();
+            send_range(range);
             break;
+                             }
         case RANGE_DATA:
-            //receive_range_answer();
+            receive_range_answer();
+            DWMReceive();
             break;
         default:
             uart2.printf("unknown frame type\n\r");
+            DWMReceive();
+            break;
     }
-    dwNewReceive(dwm); // Set Mode back to recive
-    dwStartReceive(dwm);
 }
 
-int length;
-int goalLength;
-
-void sendDWM(uint8_t* data, int length) {
-    dwNewTransmit(dwm);
-    dwSetData(dwm, data, length);
-    dwStartTransmit(dwm);
-}
 
 void sendUART(uint8_t* data, int length) {
     for(uint8_t i = 0; i<length; i++) {
@@ -306,7 +372,8 @@ void resetRangeVariables() {
 
     tDelay.full = 0;
     tDelay.full = 74756096;//63897600*5; //5msec 
-    frame.type = 0;
+    rxFrame.type = 0;
+    txFrame.type = 0;
 }
 
 void dwIRQFunction(){
@@ -314,6 +381,7 @@ void dwIRQFunction(){
 }
 
 void initialiseDWM(void) {
+    DWMMutex.lock();
     cs = 1;
     reset(dwm);
     dwInit(dwm, &ops);       // Init libdw
@@ -323,7 +391,7 @@ void initialiseDWM(void) {
     }
 
 
-    t.start(callback(&queue, &EventQueue::dispatch_forever));
+    t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
     dwTime_t delay = {.full = 0};
     dwSetAntenaDelay(dwm, delay);
 
@@ -334,17 +402,18 @@ void initialiseDWM(void) {
 
     dwNewConfiguration(dwm);
     dwSetDefaults(dwm);
-    dwEnableMode(dwm, MODE_SHORTDATA_MID_ACCURACY);
+    dwEnableMode(dwm, MODE_LONGDATA_MID_ACCURACY);
     dwSetChannel(dwm, CHANNEL_7);
     dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
     dwCommitConfiguration(dwm);
-    sIRQ.rise(queue.event(&dwIRQFunction));
-    dwReceivePermanently(dwm, true);
-    dwInterruptOnReceived(dwm, true);
-    dwInterruptOnSent(dwm, true);
+    sIRQ.rise(IRQqueue.event(&dwIRQFunction));
+    //dwReceivePermanently(dwm, true);
     resetRangeVariables();
+
     dwNewReceive(dwm);
+    dwSetDefaults(dwm);
     dwStartReceive(dwm);
+    DWMMutex.unlock();
     wait(0.5f);
 }
 
@@ -377,7 +446,6 @@ uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
         for(size_t j=0; j<l; j++) {
             out[j] = circularBuffer_read_element(cb);
         }
-        debugLed = !debugLed;
         return l;
     }
     return 0;
@@ -388,9 +456,9 @@ int main() {
     initialiseBuffers();
     initialiseDWM();
 
+    uint8_t WriteBuffer[258];
     while (true){
         serialRead(); // go to the serial parsing statemashine
-        uint8_t WriteBuffer[258];
         // write to dwm
         size_t l = parsePPRZ(&UARTcb, WriteBuffer+1);
         if(l){
@@ -401,5 +469,7 @@ int main() {
         if(l){
             sendUART(WriteBuffer, l);
         }
+        startRanging();
+        wait(5.0f);
     }
 }

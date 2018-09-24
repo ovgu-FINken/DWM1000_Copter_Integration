@@ -4,7 +4,7 @@ extern "C" {
 #include "circular_buffer.h"
 }
 
-#define ADDR 1
+#define ADDR 2
 
 DigitalOut redLed(LED2);
 DigitalOut greenLed(LED1);
@@ -199,14 +199,13 @@ void startRanging() {
 
 long double calculate_range() {
    
-    uint8_t DataBuffer[15];
     DWMMutex.lock();
-	dwGetData(dwm, DataBuffer, 15);
+	dwGetData(dwm, (uint8_t*) &rxFrame, sizeof(rxFrame));
     DWMMutex.unlock();
 
-	memcpy(tStartReply1.raw, DataBuffer, 5);
-	memcpy(tEndReply1.raw, (DataBuffer+5), 5);
-	memcpy(tEndRound2.raw, (DataBuffer+10), 5);
+	memcpy(tStartReply1.raw, rxFrame.data, 5);
+	memcpy(tEndReply1.raw, (rxFrame.data+5), 5);
+	memcpy(tEndRound2.raw, (rxFrame.data+10), 5);
 
 	calculateDeltaTime(&tStartRound1, &tStartReply2, &tRound1);
 	calculateDeltaTime(&tStartReply1, &tEndReply1, &tReply1);

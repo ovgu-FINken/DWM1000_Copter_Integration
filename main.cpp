@@ -52,6 +52,7 @@ typedef struct __attribute__((packed, aligned(1))) DataFrame {
 }DFrame;
 DFrame txFrame;
 DFrame rxFrame;
+uint8_t knownNodes[32];
 
 void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result){
 
@@ -143,8 +144,10 @@ enum FrameType{
     RANGE_3=3,
     RANGE_TRANSFER=4,
     RANGE_DATA=5,
+    RANGE_REQUEST=6,
     DATA_FRAME=42,
-    DISCOVER=255
+    PING=254,
+    PONG=255
 };
 
 void sendDWM(uint8_t* data, int length) {
@@ -163,6 +166,11 @@ void send_rp(FrameType type) {
     txFrame.dest = rxFrame.src;
     txFrame.seq++;
     sendDWM((uint8_t*)&txFrame, NO_DATA_FRAME_SIZE);
+}
+
+void register_node() {
+    uint8_t addr = rxFrame.src;
+    knownNodes[addr/32] |= 1 << (addr % 8);
 }
 
 void send_range_transfer() {
@@ -273,22 +281,18 @@ void txcallback(dwDevice_t *dev){
     DWMMutex.unlock();
     DWMReceive();
 }
-uint8_t Buffer[128];
+uint8_t Buffer[256+4];
 void handle_data_frame() {
     DWMMutex.lock();
-    uint8_t length = dwGetDataLength(dwm);
-    while(length > 128) {
-        dwGetData(dwm, Buffer, 128);
-        for(uint8_t i = 0; i<128; ++i) {
-            circularBuffer_write_element(&DWMcb, Buffer[i]);
-        }
-        length -= 128;
+    size_t length = dwGetDataLength(dwm);
+    // cap length to buffer size
+    if(length > sizeof(Buffer)) {
+        length = sizeof(Buffer);
     }
     dwGetData(dwm, Buffer, length);
     DWMMutex.unlock();
-    for(uint8_t i = 0; i<length; ++i) {
-        circularBuffer_write_element(&DWMcb, Buffer[i]);
-    }
+    // write to the circular buffer, ignoring the 4 header bytes
+    circularBuffer_write(&DWMcb, Buffer+4, length-4);
     DWMReceive();
 }
 void receive_range_answer() {
@@ -337,6 +341,12 @@ void rxcallback(dwDevice_t *dev)
         case RANGE_DATA:
             receive_range_answer();
             DWMReceive();
+            break;
+        case PING:
+            send_rp(PONG);
+            break;
+        case PONG:
+            register_node();
             break;
         default:
             uart2.printf("unknown frame type\n\r");
@@ -455,14 +465,17 @@ int main() {
     initialiseBuffers();
     initialiseDWM();
 
-    uint8_t WriteBuffer[258];
+    uint8_t WriteBuffer[256+4];
     while (true){
         serialRead(); // go to the serial parsing statemashine
         // write to dwm
-        size_t l = parsePPRZ(&UARTcb, WriteBuffer+1);
+        size_t l = parsePPRZ(&UARTcb, WriteBuffer+4);
         if(l){
             WriteBuffer[0] = DATA_FRAME;
-            sendDWM(WriteBuffer, l+1);
+            WriteBuffer[1] = ADDR;
+            WriteBuffer[2] = 0; // Broacast
+            WriteBuffer[3] = ++txFrame.seq;
+            sendDWM(WriteBuffer, l+4);
         }
         l = parsePPRZ(&DWMcb, WriteBuffer);
         if(l){

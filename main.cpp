@@ -4,7 +4,19 @@ extern "C" {
 #include "circular_buffer.h"
 }
 
+// ADDR should be same as AC_ID to match telemetry
 #define ADDR 2
+#define MAGIC_RANGE_OFFSET 153.7
+#define PPRZ_MSG_ID 254
+
+/*
+ *
+ * <message name="RANGE" id="254">
+      <field name="src"                 type="uint8"/>
+      <field name="dest"                type="uint8"/>
+      <field name="range"               type="double"/>
+    </message>
+ * */
 
 DigitalOut redLed(LED2);
 DigitalOut greenLed(LED1);
@@ -42,7 +54,7 @@ uint64_t tRound1;
 uint64_t tReply1;
 uint64_t tRound2;
 uint64_t tReply2;
-long double tPropTick;
+double tPropTick;
 typedef struct __attribute__((packed, aligned(1))) DataFrame {
     uint8_t src;
     uint8_t dest;
@@ -53,6 +65,7 @@ typedef struct __attribute__((packed, aligned(1))) DataFrame {
 DFrame txFrame;
 DFrame rxFrame;
 uint8_t knownNodes[32];
+void send_pprz_range_message(uint8_t src, uint8_t dest, double range);
 
 void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result){
 
@@ -67,8 +80,8 @@ void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result
 	}
 }
 
-void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply1, const uint64_t& tRound2, const uint64_t& tReply2, long double& tPropTick){
-	tPropTick = (long double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2);
+void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply1, const uint64_t& tRound2, const uint64_t& tReply2, double& tPropTick){
+	tPropTick = (double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2);
 }
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
@@ -187,13 +200,14 @@ void send_range_transfer() {
     sendDWM((uint8_t *)&txFrame, 19);
 }
 
-void send_range(long double range) {
+void send_range(double range) {
    	txFrame.type = RANGE_DATA;
     txFrame.src = ADDR;
     txFrame.dest = rxFrame.src;
     txFrame.seq++;
 	memcpy(txFrame.data, &range, sizeof(range));
     sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(range));
+    uart2.printf("%u, %u, %Lf\r\n", txFrame.src, txFrame.dest, range);
      
 }
 
@@ -205,7 +219,11 @@ void startRanging() {
     send_rp(RANGE_0);
 }
 
-long double calculate_range() {
+double calculateDistanceFromTicks(uint64_t tprop) {
+    return speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
+}
+
+double calculate_range() {
    
     DWMMutex.lock();
 	dwGetData(dwm, (uint8_t*) &rxFrame, sizeof(rxFrame));
@@ -221,43 +239,11 @@ long double calculate_range() {
 	calculateDeltaTime(&tEndReply1, &tEndRound2, &tRound2);
 	
 	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
-
-	long double tPropTime = (tPropTick / tsfreq); //in seconds
-
-	long double distance = (tPropTime * speedOfLight);// - 154.03; //~0.3 m per nanosecond; offset 154.03 calculated at ~1 cm distance
- 
-	uart2.printf("%0.12Lf,%Lf;\r\n",tPropTime, distance);
-    uart2.printf("%fs (tReply 1)\r\n", tReply1/tsfreq);
-    uart2.printf("%fs (tReply 2)\r\n", tReply2/tsfreq);
-    uart2.printf("%fs (tRound 1)\r\n", tRound1/tsfreq);
-    uart2.printf("%fs (tRound 2)\r\n", tRound2/tsfreq);
-	//pc.printf(" is Distance in m\r\n", distance);
-	/*
-	pc.printf("%"PRIu64"\r\n",tRound1);
-	pc.printf("%"PRIu64"\r\n",tReply1);
-	pc.printf("%"PRIu64"\r\n",tReply2);
-	pc.printf("%"PRIu64"\r\n",tRound2);
-*/	
-	uart2.printf("%" PRIu64 "\r\n",tStartRound1);
-	uart2.printf("%" PRIu64 "\r\n",tStartReply2);
-	uart2.printf("%" PRIu64 "\r\n",tEndReply2);
-	uart2.printf("%" PRIu64 "\r\n",tStartReply1);
-    uart2.printf("%" PRIu64 "\r\n",tEndReply1);
-	uart2.printf("%" PRIu64 "\r\n",tEndRound2);
-	tStartRound1.full = 0;
-	tEndRound1.full = 0;
-	tStartReply1.full = 0;
-	tEndReply1.full = 0;
-	tStartRound2.full = 0;
-	tEndRound2.full = 0;
-	tStartReply2.full = 0;
-    tEndReply2.full = 0; 
-    return distance;
+    return calculateDistanceFromTicks(tPropTick);
 }
 void DWMReceive() {
     DWMMutex.lock(); 
     dwNewReceive(dwm);
-    //dwSetDefaults(dwm);
     dwStartReceive(dwm);
     DWMMutex.unlock();
 }
@@ -296,30 +282,35 @@ void handle_data_frame() {
     DWMReceive();
 }
 void receive_range_answer() {
-    long double range;
+    double range;
     DWMMutex.lock();
-    dwGetData(dwm, (uint8_t*) &range, sizeof(long double));
+    dwGetData(dwm, (uint8_t*) &range, sizeof(double));
     DWMMutex.unlock();
-    uart2.printf("received distance %d\n", range);
+    uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
+    send_pprz_range_message(rxFrame.src, rxFrame.dest, range);
 }
 
-//Signal the reception of data by toggeling the leds
-//print the receved data to the uart
-//set the state of the module back to recive (keep listening to incoming data)
-DFrame garbage;
-void rxcallback(dwDevice_t *dev)
-{ 
-    DWMMutex.lock();
-    dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
-    DWMMutex.unlock();
-    if(rxFrame.src == ADDR) {
-        uart2.printf("received own packet - shouldn't happen\npossibly the address was given to multiple nodes");
-        return;
-    }
+void handle_broadcast_packet() {
     switch(rxFrame.type) {
         case DATA_FRAME:
             handle_data_frame();
             break;
+        case PING:
+            send_rp(PONG);
+            break;
+        case PONG:
+            register_node();
+            DWMReceive();
+            break;
+        default:
+            uart2.printf("unknown frame type\n\r");
+            DWMReceive();
+            break;
+    }
+}
+
+void handle_own_packet() {
+    switch(rxFrame.type) {
         case RANGE_0:
             send_rp(RANGE_1);
             break;
@@ -334,7 +325,7 @@ void rxcallback(dwDevice_t *dev)
             break;
         case RANGE_TRANSFER: {
             redLed = !redLed;
-            long double range = calculate_range();
+            double range = calculate_range();
             send_range(range);
             break;
                              }
@@ -342,17 +333,48 @@ void rxcallback(dwDevice_t *dev)
             receive_range_answer();
             DWMReceive();
             break;
-        case PING:
-            send_rp(PONG);
+        default:
+            handle_broadcast_packet();
             break;
-        case PONG:
-            register_node();
+    }
+}
+
+void handle_foreign_packet() {
+    switch(rxFrame.type) {
+        case RANGE_DATA:
+            receive_range_answer();
+            DWMReceive();
             break;
         default:
-            uart2.printf("unknown frame type\n\r");
             DWMReceive();
             break;
     }
+}
+
+void rxcallback(dwDevice_t *dev)
+{ 
+    DWMMutex.lock();
+    dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
+    DWMMutex.unlock();
+    if(rxFrame.src == ADDR) {
+        uart2.printf("received own packet - shouldn't happen\npossibly the address was given to multiple nodes");
+        return;
+    }
+    switch(rxFrame.dest) {
+        case ADDR:
+            handle_own_packet();
+            break;
+        case 0:
+            handle_broadcast_packet();
+            break;
+        case 255:
+            handle_broadcast_packet();
+            break;
+        default:
+            handle_foreign_packet();
+            break;
+    }
+    return;
 }
 
 
@@ -437,6 +459,18 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
     uint8_t l = circularBuffer_peek(cb, 1);
     if(l < fill)
         return 0;
+    uint8_t checksumA = 0x99;
+    uint8_t checksumB = 0x99;
+    for(size_t i = 1; i<l-2; i++) {
+        checksumA += circularBuffer_peek(cb, i);
+        checksumB += checksumA;
+    }
+    if(checksumA != circularBuffer_peek(cb, l-2)) {
+        return 0;
+    }
+    if(checksumB != circularBuffer_peek(cb, l-1)) {
+        return 0;
+    }
     return l;
 }
 
@@ -458,6 +492,26 @@ uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
         return l;
     }
     return 0;
+}
+
+void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
+    uint8_t message[4+sizeof(double)+2];
+    message[0] = 0x99;
+    message[1] = 2 + sizeof(double);
+    message[3] = src;
+    message[4] = dest;
+    double* p_range = (double*) (message + 5);
+    *p_range = range;
+    uint8_t checksumA = 0x99;
+    uint8_t checksumB = 0x99;
+    for(uint8_t i = 1; i < 2+2+sizeof(double); i++) {
+        checksumA += message[i];
+        checksumB += checksumA;
+    }
+    message[4+sizeof(double)] = checksumA;
+    message[5+sizeof(double)] = checksumB;
+
+    sendUART(message, sizeof(message));
 }
 
 int main() {
@@ -482,6 +536,6 @@ int main() {
             sendUART(WriteBuffer, l);
         }
         startRanging();
-        wait(5.0f);
+        wait(0.1f);
     }
 }

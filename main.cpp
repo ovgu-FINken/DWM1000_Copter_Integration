@@ -8,6 +8,9 @@ extern "C" {
 #define ADDR 2
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
+#define RANGE_INTERVALL_US 100
+#define TELEMETRY_BAUD 115200
+#define DEBUG_BAUD 115200
 
 /*
  *
@@ -24,8 +27,8 @@ SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
 DigitalOut cs(SPI_CS);
 InterruptIn sIRQ(PA_0);
 DigitalInOut sReset(PA_1);
-Serial uart1(PA_9, PA_10, 38400);
-Serial uart2(PA_2, PA_3, 38400);
+Serial uart1(PA_9, PA_10, TELEMETRY_BAUD);
+Serial uart2(PA_2, PA_3, DEBUG_BAUD);
 circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
@@ -212,9 +215,6 @@ void send_range(double range) {
 }
 
 void startRanging() {
-    if(ADDR == 1) {
-        return;
-    }
     rxFrame.src = 1;
     send_rp(RANGE_0);
 }
@@ -252,7 +252,6 @@ void txcallback(dwDevice_t *dev){
     DWMMutex.lock();
     switch(txFrame.type) {
         case RANGE_0:
-            greenLed = 1;
             dwGetTransmitTimestamp(dev, &tStartRound1);
             break;
         case RANGE_1:
@@ -315,7 +314,6 @@ void handle_own_packet() {
             send_rp(RANGE_1);
             break;
         case RANGE_1:
-            greenLed = 0;
             send_rp(RANGE_2);
             break;
         case RANGE_2:
@@ -324,8 +322,8 @@ void handle_own_packet() {
             redLed = !redLed;
             break;
         case RANGE_TRANSFER: {
-            redLed = !redLed;
             double range = calculate_range();
+            redLed = !redLed;
             send_range(range);
             break;
                              }
@@ -376,7 +374,6 @@ void rxcallback(dwDevice_t *dev)
     }
     return;
 }
-
 
 void sendUART(uint8_t* data, int length) {
     for(uint8_t i = 0; i<length; i++) {
@@ -466,9 +463,11 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
         checksumB += checksumA;
     }
     if(checksumA != circularBuffer_peek(cb, l-2)) {
+        circularBuffer_read_element(cb);
         return 0;
     }
     if(checksumB != circularBuffer_peek(cb, l-1)) {
+        circularBuffer_read_element(cb);
         return 0;
     }
     return l;
@@ -520,6 +519,8 @@ int main() {
     initialiseDWM();
 
     uint8_t WriteBuffer[256+4];
+    if(ADDR != 1)
+        IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
     while (true){
         serialRead(); // go to the serial parsing statemashine
         // write to dwm
@@ -535,7 +536,6 @@ int main() {
         if(l){
             sendUART(WriteBuffer, l);
         }
-        startRanging();
-        wait(0.1f);
+        wait(0.1);
     }
 }

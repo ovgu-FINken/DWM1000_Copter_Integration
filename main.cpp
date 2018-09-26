@@ -5,11 +5,12 @@ extern "C" {
 }
 
 // ADDR should be same as AC_ID to match telemetry
-#define ADDR 2
+#define ADDR 8
+//#define SWITCH_UART
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 100
-#define TELEMETRY_BAUD 115200
+#define RANGE_INTERVALL_US 10000
+#define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 
 /*
@@ -27,8 +28,13 @@ SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
 DigitalOut cs(SPI_CS);
 InterruptIn sIRQ(PA_0);
 DigitalInOut sReset(PA_1);
+#ifdef SWITCH_UART
+Serial uart1(PA_2, PA_3, TELEMETRY_BAUD);
+Serial uart2(PA_9, PA_10, DEBUG_BAUD);
+#else
 Serial uart1(PA_9, PA_10, TELEMETRY_BAUD);
 Serial uart2(PA_2, PA_3, DEBUG_BAUD);
+#endif
 circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
@@ -283,8 +289,9 @@ void handle_data_frame() {
 void receive_range_answer() {
     double range;
     DWMMutex.lock();
-    dwGetData(dwm, (uint8_t*) &range, sizeof(double));
+    dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE + sizeof(range));
     DWMMutex.unlock();
+    memcpy(&range, rxFrame.data, sizeof(range));
     uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
     send_pprz_range_message(rxFrame.src, rxFrame.dest, range);
 }
@@ -420,6 +427,7 @@ void initialiseDWM(void) {
 
 
     t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
+    //t.set_priority(osPriorityHigh);
     dwTime_t delay = {.full = 0};
     dwSetAntenaDelay(dwm, delay);
 
@@ -454,22 +462,27 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
     if(circularBuffer_peek(cb, 0) != 0x99)
         return 0;
     uint8_t l = circularBuffer_peek(cb, 1);
+    if(l = 0x99) {
+        circularBuffer_read_element(cb);
+        greenLed = !greenLed;
+        return 0;
+    }
     if(l < fill)
         return 0;
-    uint8_t checksumA = 0x99;
-    uint8_t checksumB = 0x99;
-    for(size_t i = 1; i<l-2; i++) {
-        checksumA += circularBuffer_peek(cb, i);
-        checksumB += checksumA;
-    }
-    if(checksumA != circularBuffer_peek(cb, l-2)) {
-        circularBuffer_read_element(cb);
-        return 0;
-    }
-    if(checksumB != circularBuffer_peek(cb, l-1)) {
-        circularBuffer_read_element(cb);
-        return 0;
-    }
+    //uint8_t checksumA = 0x99;
+    //uint8_t checksumB = 0x99;
+    //for(size_t i = 1; i<l-2; i++) {
+    //    checksumA += circularBuffer_peek(cb, i);
+    //    checksumB += checksumA;
+    //}
+    //if(checksumA != circularBuffer_peek(cb, l-2)) {
+    //    //circularBuffer_read_element(cb);
+    //    return 0;
+    //}
+    //if(checksumB != circularBuffer_peek(cb, l-1)) {
+    //    //circularBuffer_read_element(cb);
+    //    return 0;
+    //}
     return l;
 }
 
@@ -494,21 +507,20 @@ uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
 }
 
 void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
-    uint8_t message[4+sizeof(double)+2];
+    uint8_t message[4+sizeof(range)+2];
     message[0] = 0x99;
-    message[1] = 2 + sizeof(double);
+    message[1] = 2 + sizeof(range);
     message[3] = src;
     message[4] = dest;
-    double* p_range = (double*) (message + 5);
-    *p_range = range;
+    memcpy(&range, &message[5], sizeof(range));
     uint8_t checksumA = 0x99;
     uint8_t checksumB = 0x99;
-    for(uint8_t i = 1; i < 2+2+sizeof(double); i++) {
+    for(uint8_t i = 1; i < 2+2+sizeof(range); i++) {
         checksumA += message[i];
         checksumB += checksumA;
     }
-    message[4+sizeof(double)] = checksumA;
-    message[5+sizeof(double)] = checksumB;
+    message[4+sizeof(range)] = checksumA;
+    message[5+sizeof(range)] = checksumB;
 
     sendUART(message, sizeof(message));
 }

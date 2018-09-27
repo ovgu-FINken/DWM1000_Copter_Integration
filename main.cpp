@@ -9,12 +9,21 @@ extern "C" {
 //#define SWITCH_UART
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 10000
-#define TELEMETRY_BAUD 38400
+#define RANGE_INTERVALL_US 100
+#define TELEMETRY_BAUD 115200
 #define DEBUG_BAUD 115200
 
+#define NO_DATA_FRAME_SIZE 4
+typedef struct __attribute__((packed, aligned(1))) DataFrame {
+    uint8_t src;
+    uint8_t dest;
+    uint8_t type;
+    uint8_t seq; 
+    uint8_t data[15];
+}DFrame;
+
 /*
- *
+ * PPRZ message definition in sw/.../v1.0/....
  * <message name="RANGE" id="254">
       <field name="src"                 type="uint8"/>
       <field name="dest"                type="uint8"/>
@@ -44,17 +53,15 @@ EventQueue IRQqueue(8 * EVENTS_EVENT_SIZE);
 Thread t;
 void dwIRQFunction();
 void DWMReceive();
+void send_pprz_range_message(uint8_t src, uint8_t dest, double range);
 
 /* variables for ranging*/
 
 static const double tsfreq = 499.2e6 * 128; // Timestamp counter frequency
 static const double speedOfLight = 299792458.0; // Speed of light in m/s
-#define NO_DATA_FRAME_SIZE 4
 dwTime_t tStartRound1;
-dwTime_t tEndRound1;
 dwTime_t tStartReply1;
 dwTime_t tEndReply1;
-dwTime_t tStartRound2;
 dwTime_t tEndRound2;
 dwTime_t tStartReply2;
 dwTime_t tEndReply2;
@@ -63,18 +70,11 @@ uint64_t tRound1;
 uint64_t tReply1;
 uint64_t tRound2;
 uint64_t tReply2;
+uint8_t knownNodes[32];
 double tPropTick;
-typedef struct __attribute__((packed, aligned(1))) DataFrame {
-    uint8_t src;
-    uint8_t dest;
-    uint8_t type;
-    uint8_t seq; 
-    uint8_t data[15];
-}DFrame;
 DFrame txFrame;
 DFrame rxFrame;
-uint8_t knownNodes[32];
-void send_pprz_range_message(uint8_t src, uint8_t dest, double range);
+
 
 void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result){
 
@@ -92,6 +92,7 @@ void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result
 void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply1, const uint64_t& tRound2, const uint64_t& tReply2, double& tPropTick){
 	tPropTick = (double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2);
 }
+
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
     cs = 0;
@@ -397,10 +398,8 @@ void serialRead() {
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
-    tEndRound1.full = 0;
     tStartReply1.full = 0;
     tEndReply1.full = 0;
-    tStartRound2.full = 0;
     tEndRound2.full = 0;
     tStartReply2.full = 0;
     tEndReply2.full = 0;
@@ -506,21 +505,42 @@ uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
     return 0;
 }
 
+/*
+ * PPRZ-message: ABCxxxxxxxDE
+    A PPRZ_STX (0x99)
+    B LENGTH (PPRZ_STX->PPRZ_CHECKSUM_B)
+    C PPRZ_DATA
+      0 SENDER_ID
+      1 MSG_ID
+      2 MSG_PAYLOAD
+      . DATA (messages.xml)
+    D PPRZ_CHECKSUM_A (sum[B->C])
+    E PPRZ_CHECKSUM_B (sum[ck_a])
+
+ *
+ */
 void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
-    uint8_t message[4+sizeof(range)+2];
-    message[0] = 0x99;
-    message[1] = 2 + sizeof(range);
-    message[3] = src;
-    message[4] = dest;
-    memcpy(&range, &message[5], sizeof(range));
+    uint8_t message[4+2+2+sizeof(range)]; 
+    /* ABDE = 4; C0+C1 = 2; C2=2+sizeof(range) */
+    uint8_t idx = 0;
+    message[idx++] = 0x99; // A
+    idx++; // Room for B
+    message[idx++] = ADDR; // C0
+    message[idx++] = PPRZ_MSG_ID; // C1
+    // C2 Data
+    message[idx++] = src; 
+    message[idx++] = dest;
+    memcpy(&range, &message[idx], sizeof(range));
+    idx += sizeof(range);
+    message[2] = idx+2; // use IDX to write B, after that compute checksum
     uint8_t checksumA = 0x99;
     uint8_t checksumB = 0x99;
-    for(uint8_t i = 1; i < 2+2+sizeof(range); i++) {
+    for(uint8_t i = 1; i < idx; i++) {
         checksumA += message[i];
         checksumB += checksumA;
     }
-    message[4+sizeof(range)] = checksumA;
-    message[5+sizeof(range)] = checksumB;
+    message[idx++] = checksumA;
+    message[idx++] = checksumB;
 
     sendUART(message, sizeof(message));
 }
@@ -531,8 +551,9 @@ int main() {
     initialiseDWM();
 
     uint8_t WriteBuffer[256+4];
-    if(ADDR != 1)
-        IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
+#if ADDR != 1
+    IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
+#endif
     while (true){
         serialRead(); // go to the serial parsing statemashine
         // write to dwm
@@ -541,7 +562,7 @@ int main() {
             WriteBuffer[0] = DATA_FRAME;
             WriteBuffer[1] = ADDR;
             WriteBuffer[2] = 0; // Broacast
-            WriteBuffer[3] = ++txFrame.seq;
+            WriteBuffer[3] = txFrame.seq++;
             sendDWM(WriteBuffer, l+4);
         }
         l = parsePPRZ(&DWMcb, WriteBuffer);

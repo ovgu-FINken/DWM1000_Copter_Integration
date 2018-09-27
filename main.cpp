@@ -9,8 +9,8 @@ extern "C" {
 //#define SWITCH_UART
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 100
-#define TELEMETRY_BAUD 115200
+#define RANGE_INTERVALL_US 10000
+#define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 
 #define NO_DATA_FRAME_SIZE 4
@@ -38,10 +38,10 @@ DigitalOut cs(SPI_CS);
 InterruptIn sIRQ(PA_0);
 DigitalInOut sReset(PA_1);
 #ifdef SWITCH_UART
-Serial uart1(PA_2, PA_3, TELEMETRY_BAUD);
+RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
 Serial uart2(PA_9, PA_10, DEBUG_BAUD);
 #else
-Serial uart1(PA_9, PA_10, TELEMETRY_BAUD);
+RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
 Serial uart2(PA_2, PA_3, DEBUG_BAUD);
 #endif
 circularBuffer UARTcb;
@@ -327,11 +327,9 @@ void handle_own_packet() {
         case RANGE_2:
             //send_rp(RANGE_TRANSFER);
             send_range_transfer();
-            redLed = !redLed;
             break;
         case RANGE_TRANSFER: {
             double range = calculate_range();
-            redLed = !redLed;
             send_range(range);
             break;
                              }
@@ -363,7 +361,7 @@ void rxcallback(dwDevice_t *dev)
     dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
     DWMMutex.unlock();
     if(rxFrame.src == ADDR) {
-        uart2.printf("received own packet - shouldn't happen\npossibly the address was given to multiple nodes");
+        uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");
         return;
     }
     switch(rxFrame.dest) {
@@ -391,10 +389,11 @@ void sendUART(uint8_t* data, int length) {
 
 void serialRead() {
     // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
-    while(uart1.readable())
-    {
+    greenLed = 1;
+    while(uart1.readable()) {
         circularBuffer_write_element(&UARTcb, uart1.getc());
     }
+    greenLed = 0;
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
@@ -426,7 +425,7 @@ void initialiseDWM(void) {
 
 
     t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
-    //t.set_priority(osPriorityHigh);
+    t.set_priority(osPriorityLow);
     dwTime_t delay = {.full = 0};
     dwSetAntenaDelay(dwm, delay);
 
@@ -461,27 +460,32 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
     if(circularBuffer_peek(cb, 0) != 0x99)
         return 0;
     uint8_t l = circularBuffer_peek(cb, 1);
-    if(l = 0x99) {
+    if(l == 0) {
         circularBuffer_read_element(cb);
-        greenLed = !greenLed;
+    }
+    //if(l = 0x99) {
+        //circularBuffer_read_element(cb);
+    //    return 0;
+    //}
+    if(l > fill)
+        return 0;
+    uint8_t checksumA = 0;
+    uint8_t checksumB = 0;
+    for(size_t i = 1; i<l-2; i++) {
+        checksumA += circularBuffer_peek(cb, i);
+        checksumB += checksumA;
+    }
+    redLed = 0;
+    if(checksumA != circularBuffer_peek(cb, l-2)) {
+        redLed = 1;
+        circularBuffer_read_element(cb);
         return 0;
     }
-    if(l < fill)
+    if(checksumB != circularBuffer_peek(cb, l-1)) {
+        redLed = 1;
+        circularBuffer_read_element(cb);
         return 0;
-    //uint8_t checksumA = 0x99;
-    //uint8_t checksumB = 0x99;
-    //for(size_t i = 1; i<l-2; i++) {
-    //    checksumA += circularBuffer_peek(cb, i);
-    //    checksumB += checksumA;
-    //}
-    //if(checksumA != circularBuffer_peek(cb, l-2)) {
-    //    //circularBuffer_read_element(cb);
-    //    return 0;
-    //}
-    //if(checksumB != circularBuffer_peek(cb, l-1)) {
-    //    //circularBuffer_read_element(cb);
-    //    return 0;
-    //}
+    }
     return l;
 }
 
@@ -533,8 +537,8 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
     memcpy(&range, &message[idx], sizeof(range));
     idx += sizeof(range);
     message[2] = idx+2; // use IDX to write B, after that compute checksum
-    uint8_t checksumA = 0x99;
-    uint8_t checksumB = 0x99;
+    uint8_t checksumA = 0;
+    uint8_t checksumB = 0;
     for(uint8_t i = 1; i < idx; i++) {
         checksumA += message[i];
         checksumB += checksumA;
@@ -547,6 +551,7 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
 
 int main() {
     uart2.printf("Start Ranging\n");
+    uart1.attach(&serialRead,Serial::RxIrq);
     initialiseBuffers();
     initialiseDWM();
 
@@ -555,13 +560,12 @@ int main() {
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
 #endif
     while (true){
-        serialRead(); // go to the serial parsing statemashine
         // write to dwm
         size_t l = parsePPRZ(&UARTcb, WriteBuffer+4);
         if(l){
-            WriteBuffer[0] = DATA_FRAME;
-            WriteBuffer[1] = ADDR;
-            WriteBuffer[2] = 0; // Broacast
+            WriteBuffer[0] = ADDR;
+            WriteBuffer[1] = 0; // Broacast
+            WriteBuffer[2] = DATA_FRAME;
             WriteBuffer[3] = txFrame.seq++;
             sendDWM(WriteBuffer, l+4);
         }

@@ -1,4 +1,5 @@
 #include "mbed.h"
+#include "rtos.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -9,7 +10,7 @@ extern "C" {
 //#define SWITCH_UART
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 5000
+#define RANGE_INTERVALL_US 3000
 #define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 
@@ -392,7 +393,7 @@ void serialRead() {
     while(uart1.readable()) {
         circularBuffer_write_element(&UARTcb, uart1.getc());
     }
-    greenLed = (circularBuffer_fill(&UARTcb) > 128);
+    greenLed = (circularBuffer_fill(&UARTcb) > 200);
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
@@ -493,8 +494,7 @@ uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
             return 0;
         if(circularBuffer_peek(cb, 0) == 0x99)
             break;
-        if(circularBuffer_read_element(cb) == 0x99)
-            redLed = !redLed;
+        circularBuffer_read_element(cb);
     }
     size_t fill = circularBuffer_fill(cb);
     if(fill < 5) {
@@ -571,10 +571,13 @@ int main() {
             WriteBuffer[3] = txFrame.seq++;
             sendDWM(WriteBuffer, l+4);
         }
+        Thread::yield();
         l = parsePPRZ(&DWMcb, WriteBuffer);
         if(l){
             sendUART(WriteBuffer, l);
         }
-        wait(0.0001);
+        //wait(0.0001);
+        //Thread::wait(0.0001);
+        Thread::yield();
     }
 }

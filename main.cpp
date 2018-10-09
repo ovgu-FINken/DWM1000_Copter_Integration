@@ -5,11 +5,11 @@ extern "C" {
 }
 
 // ADDR should be same as AC_ID to match telemetry
-#define ADDR 8
+#define ADDR 2
 //#define SWITCH_UART
 #define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 10000
+#define RANGE_INTERVALL_US 5000
 #define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 
@@ -23,7 +23,7 @@ typedef struct __attribute__((packed, aligned(1))) DataFrame {
 }DFrame;
 
 /*
- * PPRZ message definition in sw/.../v1.0/....
+ * PPRZ message definition in sw/pprzlink/messages/v1.0/messages.xml
  * <message name="RANGE" id="254">
       <field name="src"                 type="uint8"/>
       <field name="dest"                type="uint8"/>
@@ -389,11 +389,10 @@ void sendUART(uint8_t* data, int length) {
 
 void serialRead() {
     // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
-    greenLed = 1;
     while(uart1.readable()) {
         circularBuffer_write_element(&UARTcb, uart1.getc());
     }
-    greenLed = 0;
+    greenLed = (circularBuffer_fill(&UARTcb) > 128);
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
@@ -425,7 +424,7 @@ void initialiseDWM(void) {
 
 
     t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
-    t.set_priority(osPriorityLow);
+    t.set_priority(osPriorityHigh);
     dwTime_t delay = {.full = 0};
     dwSetAntenaDelay(dwm, delay);
 
@@ -436,7 +435,7 @@ void initialiseDWM(void) {
 
     dwNewConfiguration(dwm);
     dwSetDefaults(dwm);
-    dwEnableMode(dwm, MODE_LONGDATA_MID_ACCURACY);
+    dwEnableMode(dwm, MODE_SHORTDATA_MID_ACCURACY);
     dwSetChannel(dwm, CHANNEL_7);
     dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
     dwCommitConfiguration(dwm);
@@ -457,16 +456,16 @@ void initialiseBuffers(){
 }
 
 uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
+    if(circularBuffer_status(cb) == circularBuffer_EMPTY)
+        return 0;
     if(circularBuffer_peek(cb, 0) != 0x99)
         return 0;
     uint8_t l = circularBuffer_peek(cb, 1);
-    if(l == 0) {
+    if(l <= 5) {
+        // dismiss packet if length < HEADER + PAYLOAD
         circularBuffer_read_element(cb);
+        return 0;
     }
-    //if(l = 0x99) {
-        //circularBuffer_read_element(cb);
-    //    return 0;
-    //}
     if(l > fill)
         return 0;
     uint8_t checksumA = 0;
@@ -475,14 +474,13 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
         checksumA += circularBuffer_peek(cb, i);
         checksumB += checksumA;
     }
-    redLed = 0;
     if(checksumA != circularBuffer_peek(cb, l-2)) {
-        redLed = 1;
+        redLed = !redLed;
         circularBuffer_read_element(cb);
         return 0;
     }
     if(checksumB != circularBuffer_peek(cb, l-1)) {
-        redLed = 1;
+        redLed = !redLed;
         circularBuffer_read_element(cb);
         return 0;
     }
@@ -490,11 +488,16 @@ uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
 }
 
 uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
-    while(circularBuffer_status(cb)!=circularBuffer_EMPTY && circularBuffer_peek(cb, 0)!=0x99) {
-        circularBuffer_read_element(cb);
+    while(1) {
+        if(circularBuffer_status(cb) == circularBuffer_EMPTY)
+            return 0;
+        if(circularBuffer_peek(cb, 0) == 0x99)
+            break;
+        if(circularBuffer_read_element(cb) == 0x99)
+            redLed = !redLed;
     }
     size_t fill = circularBuffer_fill(cb);
-    if(fill < 3) {
+    if(fill < 5) {
         return 0;
     } 
     uint8_t l = check_pprz(cb, 0, fill);
@@ -528,15 +531,14 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
     /* ABDE = 4; C0+C1 = 2; C2=2+sizeof(range) */
     uint8_t idx = 0;
     message[idx++] = 0x99; // A
-    idx++; // Room for B
-    message[idx++] = ADDR; // C0
+    message[idx++] = sizeof(message); // Room for B
+    message[idx++] = src; // C0
     message[idx++] = PPRZ_MSG_ID; // C1
     // C2 Data
     message[idx++] = src; 
     message[idx++] = dest;
-    memcpy(&range, &message[idx], sizeof(range));
+    memcpy(&message[idx], &range,  sizeof(range));
     idx += sizeof(range);
-    message[2] = idx+2; // use IDX to write B, after that compute checksum
     uint8_t checksumA = 0;
     uint8_t checksumB = 0;
     for(uint8_t i = 1; i < idx; i++) {
@@ -573,6 +575,6 @@ int main() {
         if(l){
             sendUART(WriteBuffer, l);
         }
-        wait(0.1);
+        wait(0.0001);
     }
 }

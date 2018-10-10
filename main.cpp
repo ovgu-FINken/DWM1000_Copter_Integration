@@ -3,6 +3,7 @@
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
+#include "pprz.h"
 }
 
 // ADDR should be same as AC_ID to match telemetry
@@ -50,7 +51,7 @@ circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
 uint8_t DWMcb_data[256];
 Mutex DWMMutex; // protect write and receive operations
-EventQueue IRQqueue(8 * EVENTS_EVENT_SIZE);
+EventQueue IRQqueue(32 * EVENTS_EVENT_SIZE);
 Thread t;
 void dwIRQFunction();
 void DWMReceive();
@@ -140,8 +141,10 @@ static void spiSetSpeed(dwDevice_t* dev, dwSpiSpeed_t speed)
 static void reset(dwDevice_t* dev)
 {
     sReset.output();
+    redLed = 1;
     sReset = 0;
-    wait(0.5f);
+    wait(1);
+    redLed = 0;
     sReset.input();
 }
 
@@ -285,7 +288,9 @@ void handle_data_frame() {
     dwGetData(dwm, Buffer, length);
     DWMMutex.unlock();
     // write to the circular buffer, ignoring the 4 header bytes
-    circularBuffer_write(&DWMcb, Buffer+4, length-4);
+    // cap read_length to match buffer size (length - 4 may otherwise crash the buffer)
+    uint8_t read_length = length - 4;
+    circularBuffer_write(&DWMcb, Buffer+4, read_length);
     DWMReceive();
 }
 void receive_range_answer() {
@@ -456,61 +461,6 @@ void initialiseBuffers(){
     circularBuffer_init(&DWMcb, DWMcb_data, 256);
 }
 
-uint8_t check_pprz(circularBuffer* cb, size_t i, size_t fill) {
-    if(circularBuffer_status(cb) == circularBuffer_EMPTY)
-        return 0;
-    if(circularBuffer_peek(cb, 0) != 0x99)
-        return 0;
-    uint8_t l = circularBuffer_peek(cb, 1);
-    if(l <= 5) {
-        // dismiss packet if length < HEADER + PAYLOAD
-        circularBuffer_read_element(cb);
-        return 0;
-    }
-    if(l > fill)
-        return 0;
-    uint8_t checksumA = 0;
-    uint8_t checksumB = 0;
-    for(size_t i = 1; i<l-2; i++) {
-        checksumA += circularBuffer_peek(cb, i);
-        checksumB += checksumA;
-    }
-    if(checksumA != circularBuffer_peek(cb, l-2)) {
-        redLed = !redLed;
-        circularBuffer_read_element(cb);
-        return 0;
-    }
-    if(checksumB != circularBuffer_peek(cb, l-1)) {
-        redLed = !redLed;
-        circularBuffer_read_element(cb);
-        return 0;
-    }
-    return l;
-}
-
-uint8_t parsePPRZ(circularBuffer* cb, uint8_t* out) {
-    while(1) {
-        if(circularBuffer_status(cb) == circularBuffer_EMPTY)
-            return 0;
-        if(circularBuffer_peek(cb, 0) == 0x99)
-            break;
-        circularBuffer_read_element(cb);
-    }
-    size_t fill = circularBuffer_fill(cb);
-    if(fill < 5) {
-        return 0;
-    } 
-    uint8_t l = check_pprz(cb, 0, fill);
-    if(l) {
-        if(l > fill)
-            return 0;
-        for(size_t j=0; j<l; j++) {
-            out[j] = circularBuffer_read_element(cb);
-        }
-        return l;
-    }
-    return 0;
-}
 
 /*
  * PPRZ-message: ABCxxxxxxxDE
@@ -552,32 +502,31 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
 }
 
 int main() {
-    uart2.printf("Start Ranging\n");
-    uart1.attach(&serialRead,Serial::RxIrq);
     initialiseBuffers();
     initialiseDWM();
+    uart2.printf("Start Ranging\n");
+    uart1.attach(&serialRead,Serial::RxIrq);
 
     uint8_t WriteBuffer[256+4];
 #if ADDR != 1
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
 #endif
     while (true){
-        // write to dwm
-        size_t l = parsePPRZ(&UARTcb, WriteBuffer+4);
+        uint8_t l = parsePPRZ(&UARTcb);
         if(l){
             WriteBuffer[0] = ADDR;
             WriteBuffer[1] = 0; // Broacast
             WriteBuffer[2] = DATA_FRAME;
             WriteBuffer[3] = txFrame.seq++;
+            circularBuffer_read(&UARTcb, WriteBuffer+4, l);
             sendDWM(WriteBuffer, l+4);
         }
         Thread::yield();
-        l = parsePPRZ(&DWMcb, WriteBuffer);
+        l = parsePPRZ(&DWMcb);
         if(l){
+            circularBuffer_read(&DWMcb, WriteBuffer, l);
             sendUART(WriteBuffer, l);
         }
-        //wait(0.0001);
-        //Thread::wait(0.0001);
         Thread::yield();
     }
 }

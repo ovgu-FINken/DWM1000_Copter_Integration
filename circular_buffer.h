@@ -18,8 +18,9 @@ enum circularBufferStatus circularBuffer_status(struct circularBuffer* cb);
 size_t circularBuffer_fill(struct circularBuffer* cb);
 size_t circularBuffer_capacity(struct circularBuffer* cb);
 
-int circularBuffer_write(struct circularBuffer* cb, uint8_t* Buf, size_t l);
+int circularBuffer_write(struct circularBuffer* cb, uint8_t* Buf, size_t l );
 int circularBuffer_write_element( struct circularBuffer* cb, uint8_t c );
+int circularBuffer_read( struct circularBuffer* cb, uint8_t* Buf, size_t l );
 uint8_t circularBuffer_read_element( struct circularBuffer* cb );
 uint8_t circularBuffer_peek( struct circularBuffer* cb, size_t index );
 void circularBuffer_delete_all( struct circularBuffer* cb);

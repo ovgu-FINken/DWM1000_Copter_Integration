@@ -46,10 +46,20 @@ int circularBuffer_write_element( struct circularBuffer* cb, uint8_t c ) {
 
 uint8_t circularBuffer_read_element( struct circularBuffer* cb ) {
     if(circularBuffer_status(cb) == circularBuffer_EMPTY)
-        return '\0';
+        return 0;
     uint8_t value = cb->data[cb->tail];
     cb->tail = (cb->tail + 1) % cb->size;
     return value;
+}
+
+int circularBuffer_read(struct circularBuffer* cb, uint8_t* Buf, size_t l) {
+    if(circularBuffer_fill < l) {
+        return 0; 
+    }
+    for(size_t i = 0; i<l; i++) {
+        Buf[i] = circularBuffer_read_element(cb);
+    }
+    return 1;
 }
 
 // return an element in front of the tail (read pointer) without moving it

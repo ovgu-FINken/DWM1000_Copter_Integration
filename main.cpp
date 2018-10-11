@@ -1,5 +1,6 @@
 #include "mbed.h"
 #include "rtos.h"
+#include "ranging.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -7,23 +8,14 @@ extern "C" {
 }
 
 // ADDR should be same as AC_ID to match telemetry
-#define ADDR 2
+#define ADDR 5
 //#define SWITCH_UART
-#define MAGIC_RANGE_OFFSET 153.7
 #define PPRZ_MSG_ID 254
 #define RANGE_INTERVALL_US 3000
 #define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 
-#define NO_DATA_FRAME_SIZE 4
-typedef struct __attribute__((packed, aligned(1))) DataFrame {
-    uint8_t src;
-    uint8_t dest;
-    uint8_t type;
-    uint8_t seq; 
-    uint8_t data[15];
-}DFrame;
-
+volatile bool sending;
 /*
  * PPRZ message definition in sw/pprzlink/messages/v1.0/messages.xml
  * <message name="RANGE" id="254">
@@ -50,7 +42,6 @@ circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
 uint8_t DWMcb_data[256];
-Mutex DWMMutex; // protect write and receive operations
 EventQueue IRQqueue(32 * EVENTS_EVENT_SIZE);
 Thread t;
 void dwIRQFunction();
@@ -59,8 +50,6 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range);
 
 /* variables for ranging*/
 
-static const double tsfreq = 499.2e6 * 128; // Timestamp counter frequency
-static const double speedOfLight = 299792458.0; // Speed of light in m/s
 dwTime_t tStartRound1;
 dwTime_t tStartReply1;
 dwTime_t tEndReply1;
@@ -77,23 +66,6 @@ double tPropTick;
 DFrame txFrame;
 DFrame rxFrame;
 
-
-void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result){
-
-	uint64_t start = (startTime->full);
-	uint64_t end = (endTime->full);
-
-	if(end > start){
-		*result = (end - start);
-	}
-	else{
-		*result = (end + (1099511628000-start));
-	}
-}
-
-void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply1, const uint64_t& tRound2, const uint64_t& tReply2, double& tPropTick){
-	tPropTick = (double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2);
-}
 
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
@@ -143,7 +115,7 @@ static void reset(dwDevice_t* dev)
     sReset.output();
     redLed = 1;
     sReset = 0;
-    wait(1);
+    wait(0.1);
     redLed = 0;
     sReset.input();
 }
@@ -164,27 +136,13 @@ static dwOps_t ops = {
 dwDevice_t dwm_device;
 dwDevice_t* dwm = &dwm_device;
 
-enum FrameType{
-    RANGE_0=0,
-    RANGE_1=1,
-    RANGE_2=2,
-    RANGE_3=3,
-    RANGE_TRANSFER=4,
-    RANGE_DATA=5,
-    RANGE_REQUEST=6,
-    DATA_FRAME=42,
-    PING=254,
-    PONG=255
-};
-
 void sendDWM(uint8_t* data, int length) {
-    DWMMutex.lock();
+    sending = true;
     spi.lock();
     dwNewTransmit(dwm);
     dwSetData(dwm, data, length);
     dwStartTransmit(dwm);
     spi.unlock();
-    DWMMutex.unlock();
 }
 
 void send_rp(FrameType type) {
@@ -201,9 +159,7 @@ void register_node() {
 }
 
 void send_range_transfer() {
-    DWMMutex.lock();
     dwGetReceiveTimestamp(dwm, &tEndRound2);
-    DWMMutex.unlock();
    	txFrame.type = RANGE_TRANSFER;
     txFrame.src = ADDR;
     txFrame.dest = rxFrame.src;
@@ -230,15 +186,9 @@ void startRanging() {
     send_rp(RANGE_0);
 }
 
-double calculateDistanceFromTicks(uint64_t tprop) {
-    return speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
-}
 
 double calculate_range() {
-   
-    DWMMutex.lock();
 	dwGetData(dwm, (uint8_t*) &rxFrame, sizeof(rxFrame));
-    DWMMutex.unlock();
 
 	memcpy(tStartReply1.raw, rxFrame.data, 5);
 	memcpy(tEndReply1.raw, (rxFrame.data+5), 5);
@@ -252,15 +202,16 @@ double calculate_range() {
 	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
     return calculateDistanceFromTicks(tPropTick);
 }
+
 void DWMReceive() {
-    DWMMutex.lock(); 
+    if(sending)
+        return;
     dwNewReceive(dwm);
     dwStartReceive(dwm);
-    DWMMutex.unlock();
 }
 
 void txcallback(dwDevice_t *dev){
-    DWMMutex.lock();
+    sending = false;
     switch(txFrame.type) {
         case RANGE_0:
             dwGetTransmitTimestamp(dev, &tStartRound1);
@@ -274,19 +225,16 @@ void txcallback(dwDevice_t *dev){
             dwGetTransmitTimestamp(dev, &tEndReply2);
             break;
     }
-    DWMMutex.unlock();
     DWMReceive();
 }
 uint8_t Buffer[256+4];
 void handle_data_frame() {
-    DWMMutex.lock();
     size_t length = dwGetDataLength(dwm);
     // cap length to buffer size
     if(length > sizeof(Buffer)) {
         length = sizeof(Buffer);
     }
     dwGetData(dwm, Buffer, length);
-    DWMMutex.unlock();
     // write to the circular buffer, ignoring the 4 header bytes
     // cap read_length to match buffer size (length - 4 may otherwise crash the buffer)
     uint8_t read_length = length - 4;
@@ -295,9 +243,7 @@ void handle_data_frame() {
 }
 void receive_range_answer() {
     double range;
-    DWMMutex.lock();
     dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE + sizeof(range));
-    DWMMutex.unlock();
     memcpy(&range, rxFrame.data, sizeof(range));
     uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
     send_pprz_range_message(rxFrame.src, rxFrame.dest, range);
@@ -361,11 +307,13 @@ void handle_foreign_packet() {
     }
 }
 
+void failcallback(dwDevice_t *dev) {
+    DWMReceive();
+}
+
 void rxcallback(dwDevice_t *dev)
 { 
-    DWMMutex.lock();
     dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
-    DWMMutex.unlock();
     if(rxFrame.src == ADDR) {
         uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");
         return;
@@ -419,8 +367,6 @@ void dwIRQFunction(){
 }
 
 void initialiseDWM(void) {
-    DWMMutex.lock();
-    cs = 1;
     reset(dwm);
     dwInit(dwm, &ops);       // Init libdw
     uint8_t result = dwConfigure(dwm); // Configure the dw1000 chip
@@ -429,13 +375,13 @@ void initialiseDWM(void) {
     }
 
 
-    t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
-    t.set_priority(osPriorityHigh);
     dwTime_t delay = {.full = 0};
     dwSetAntenaDelay(dwm, delay);
 
     dwAttachSentHandler(dwm, txcallback);
     dwAttachReceivedHandler(dwm, rxcallback);
+    dwAttachReceiveTimeoutHandler(dwm, failcallback);
+    dwAttachReceiveFailedHandler(dwm, failcallback);
     dwInterruptOnReceived(dwm, true);
     dwInterruptOnSent(dwm, true);
 
@@ -445,14 +391,12 @@ void initialiseDWM(void) {
     dwSetChannel(dwm, CHANNEL_7);
     dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
     dwCommitConfiguration(dwm);
-    sIRQ.rise(IRQqueue.event(&dwIRQFunction));
     //dwReceivePermanently(dwm, true);
     resetRangeVariables();
 
     dwNewReceive(dwm);
     dwSetDefaults(dwm);
     dwStartReceive(dwm);
-    DWMMutex.unlock();
     wait(0.5f);
 }
 
@@ -503,6 +447,10 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
 
 int main() {
     initialiseBuffers();
+    t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
+    t.set_priority(osPriorityHigh);
+    sIRQ.mode(PullDown);
+    sIRQ.rise(IRQqueue.event(&dwIRQFunction));
     initialiseDWM();
     uart2.printf("Start Ranging\n");
     uart1.attach(&serialRead,Serial::RxIrq);
@@ -512,6 +460,10 @@ int main() {
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
 #endif
     while (true){
+        if(dwm->deviceMode == IDLE_MODE) {
+            sending = false;
+            DWMReceive();
+        }
         uint8_t l = parsePPRZ(&UARTcb);
         if(l){
             WriteBuffer[0] = ADDR;
@@ -520,6 +472,7 @@ int main() {
             WriteBuffer[3] = txFrame.seq++;
             circularBuffer_read(&UARTcb, WriteBuffer+4, l);
             sendDWM(WriteBuffer, l+4);
+            redLed = !redLed;
         }
         Thread::yield();
         l = parsePPRZ(&DWMcb);

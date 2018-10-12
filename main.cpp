@@ -10,6 +10,7 @@ extern "C" {
 // ADDR should be same as AC_ID to match telemetry
 #define ADDR 1
 //#define SWITCH_UART
+#define ECHO 0
 #define PPRZ_MSG_ID 254
 #define RANGE_INTERVALL_US 3000
 #define TELEMETRY_BAUD 38400
@@ -348,8 +349,9 @@ void serialRead() {
     greenLed = 1;
     while(uart1.readable()) {
         char c = uart1.getc();
+#if ECHO == 1
         uart1.putc(c);
-
+#endif
         circularBuffer_write_element(&UARTcb, c);
     }
     greenLed = 0;
@@ -463,9 +465,6 @@ void irq_cheker() {
     }
     if(irq_checker_count < IRQ_CHECKER_THRESHOLD)
         return;
-    //IRQqueue.event(&dwIRQFunction);
-    //dwClearInterrupts(dwm);
-    //initialiseDWM();
     redLed = 1;
     sending = false;
     DWMReceive();

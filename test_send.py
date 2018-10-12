@@ -10,7 +10,8 @@ if len(sys.argv) < 2:
     print "usage: %s <ttyUSB number> <baudrate> <rtscts=0|1> <output generating program call>\n"%sys.argv[0]
     sys.exit()
 
-inPort = serial.Serial('/dev/tty.usbmodemBDE5A903', int(sys.argv[1]), rtscts = True)
+#inPort = serial.Serial('/dev/tty.usbmodemBDE5A903', int(sys.argv[1]), rtscts = True)
+inPort = serial.Serial('/dev/tty.SLAB_USBtoUART', int(sys.argv[1]), rtscts = False)
 
 inPort.write(' ')
 

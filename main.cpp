@@ -8,12 +8,14 @@ extern "C" {
 }
 
 // ADDR should be same as AC_ID to match telemetry
-#define ADDR 5
+#define ADDR 1
 //#define SWITCH_UART
 #define PPRZ_MSG_ID 254
 #define RANGE_INTERVALL_US 3000
 #define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
+#define IRQ_CHECKER_INTERVALL 100
+#define IRQ_CHECKER_THRESHOLD 3
 
 volatile bool sending;
 /*
@@ -33,21 +35,22 @@ InterruptIn sIRQ(PA_0);
 DigitalInOut sReset(PA_1);
 #ifdef SWITCH_UART
 RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
-Serial uart2(PA_9, PA_10, DEBUG_BAUD);
+RawSerial uart2(PA_9, PA_10, DEBUG_BAUD);
 #else
 RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
-Serial uart2(PA_2, PA_3, DEBUG_BAUD);
+RawSerial uart2(PA_2, PA_3, DEBUG_BAUD);
 #endif
 circularBuffer UARTcb;
 circularBuffer DWMcb;
 uint8_t UARTcb_data[256];
 uint8_t DWMcb_data[256];
 EventQueue IRQqueue(32 * EVENTS_EVENT_SIZE);
-Thread t;
+EventQueue DWMqueue(16 * EVENTS_EVENT_SIZE);
+Thread t_irq;
 void dwIRQFunction();
 void DWMReceive();
 void send_pprz_range_message(uint8_t src, uint8_t dest, double range);
-
+uint8_t irq_checker_count = 0;
 /* variables for ranging*/
 
 dwTime_t tStartRound1;
@@ -299,12 +302,11 @@ void handle_foreign_packet() {
     switch(rxFrame.type) {
         case RANGE_DATA:
             receive_range_answer();
-            DWMReceive();
             break;
         default:
-            DWMReceive();
             break;
     }
+    DWMReceive();
 }
 
 void failcallback(dwDevice_t *dev) {
@@ -343,10 +345,14 @@ void sendUART(uint8_t* data, int length) {
 
 void serialRead() {
     // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
+    greenLed = 1;
     while(uart1.readable()) {
-        circularBuffer_write_element(&UARTcb, uart1.getc());
+        char c = uart1.getc();
+        uart1.putc(c);
+
+        circularBuffer_write_element(&UARTcb, c);
     }
-    greenLed = (circularBuffer_fill(&UARTcb) > 200);
+    greenLed = 0;
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
@@ -384,6 +390,8 @@ void initialiseDWM(void) {
     dwAttachReceiveFailedHandler(dwm, failcallback);
     dwInterruptOnReceived(dwm, true);
     dwInterruptOnSent(dwm, true);
+    dwInterruptOnReceiveTimeout(dwm, true);
+    dwInterruptOnReceiveFailed(dwm, true);
 
     dwNewConfiguration(dwm);
     dwSetDefaults(dwm);
@@ -445,25 +453,48 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
     sendUART(message, sizeof(message));
 }
 
+void irq_cheker() {
+    if(sIRQ.read()) {
+        irq_checker_count++;
+    } else {
+        irq_checker_count = 0;
+        redLed = 0;
+        return;
+    }
+    if(irq_checker_count < IRQ_CHECKER_THRESHOLD)
+        return;
+    //IRQqueue.event(&dwIRQFunction);
+    //dwClearInterrupts(dwm);
+    //initialiseDWM();
+    redLed = 1;
+    sending = false;
+    DWMReceive();
+}
+
 int main() {
     initialiseBuffers();
-    t.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
-    t.set_priority(osPriorityHigh);
+    t_irq.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
+    t_irq.set_priority(osPriorityHigh);
     sIRQ.mode(PullDown);
     sIRQ.rise(IRQqueue.event(&dwIRQFunction));
     initialiseDWM();
     uart2.printf("Start Ranging\n");
+    uart1.baud(TELEMETRY_BAUD);
+    uart1.format( 	8, SerialBase::None, 1 ); // 8bits, no parity, 1stop-bit
     uart1.attach(&serialRead,Serial::RxIrq);
 
     uint8_t WriteBuffer[256+4];
 #if ADDR != 1
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
 #endif
+    IRQqueue.call_every(IRQ_CHECKER_INTERVALL, irq_cheker);
     while (true){
+        /*
         if(dwm->deviceMode == IDLE_MODE) {
             sending = false;
             DWMReceive();
         }
+        */
         uint8_t l = parsePPRZ(&UARTcb);
         if(l){
             WriteBuffer[0] = ADDR;
@@ -472,7 +503,6 @@ int main() {
             WriteBuffer[3] = txFrame.seq++;
             circularBuffer_read(&UARTcb, WriteBuffer+4, l);
             sendDWM(WriteBuffer, l+4);
-            redLed = !redLed;
         }
         Thread::yield();
         l = parsePPRZ(&DWMcb);

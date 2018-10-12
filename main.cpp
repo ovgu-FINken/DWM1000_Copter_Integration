@@ -186,8 +186,10 @@ void send_range(double range) {
 }
 
 void startRanging() {
+    greenLed = 0;
     rxFrame.src = 1;
     send_rp(RANGE_0);
+    greenLed = 1;
 }
 
 
@@ -346,7 +348,7 @@ void sendUART(uint8_t* data, int length) {
 
 void serialRead() {
     // this should collect the packets to be sent, and if an packet is complets, it should be sent ... wow ...
-    greenLed = 1;
+    greenLed = 0;
     while(uart1.readable()) {
         char c = uart1.getc();
 #if ECHO == 1
@@ -354,7 +356,7 @@ void serialRead() {
 #endif
         circularBuffer_write_element(&UARTcb, c);
     }
-    greenLed = 0;
+    greenLed = 1;
 }
 void resetRangeVariables() {
     tStartRound1.full = 0;
@@ -371,7 +373,9 @@ void resetRangeVariables() {
 }
 
 void dwIRQFunction(){
+    greenLed=0;
     dwHandleInterrupt(dwm);
+    greenLed=1;
 }
 
 void initialiseDWM(void) {
@@ -456,6 +460,7 @@ void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
 }
 
 void irq_cheker() {
+    greenLed = 0;
     if(sIRQ.read()) {
         irq_checker_count++;
     } else {
@@ -468,6 +473,7 @@ void irq_cheker() {
     redLed = 1;
     sending = false;
     DWMReceive();
+    greenLed = 1;
 }
 
 int main() {
@@ -478,8 +484,6 @@ int main() {
     sIRQ.rise(IRQqueue.event(&dwIRQFunction));
     initialiseDWM();
     uart2.printf("Start Ranging\n");
-    uart1.baud(TELEMETRY_BAUD);
-    uart1.format( 	8, SerialBase::None, 1 ); // 8bits, no parity, 1stop-bit
     uart1.attach(&serialRead,Serial::RxIrq);
 
     uint8_t WriteBuffer[256+4];
@@ -488,6 +492,7 @@ int main() {
 #endif
     IRQqueue.call_every(IRQ_CHECKER_INTERVALL, irq_cheker);
     while (true){
+        greenLed = 1;
         /*
         if(dwm->deviceMode == IDLE_MODE) {
             sending = false;

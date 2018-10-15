@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "rtos.h"
 #include "ranging.h"
+#include <Eigen/Dense.h>
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"

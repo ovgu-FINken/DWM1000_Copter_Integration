@@ -2,6 +2,7 @@
 #include "rtos.h"
 #include "ranging.h"
 #include <Eigen/Dense.h>
+#include "mlat.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -19,6 +20,7 @@ extern "C" {
 #define IRQ_CHECKER_INTERVALL 100
 #define IRQ_CHECKER_THRESHOLD 3
 
+using namespace Eigen;
 volatile bool sending;
 /*
  * PPRZ message definition in sw/pprzlink/messages/v1.0/messages.xml
@@ -28,6 +30,9 @@ volatile bool sending;
       <field name="range"               type="double"/>
     </message>
  * */
+
+MatrixXd anchors(4, 3);
+
 
 DigitalOut redLed(LED2);
 DigitalOut greenLed(LED1);
@@ -478,6 +483,15 @@ void irq_cheker() {
 }
 
 int main() {
+    MLat<5> mlat;
+    mlat.anchors << 0,0,0,
+                    0,0,1,
+                    0,1,0,
+                    1,0,0,
+                    1,1,1;
+    mlat.position << .5,.5,.5;
+    mlat.m << 0, 1, 1, 1, 1.41;
+    mlat.iterative_step();
     initialiseBuffers();
     t_irq.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
     t_irq.set_priority(osPriorityHigh);

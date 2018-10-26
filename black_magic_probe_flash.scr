@@ -1,7 +1,8 @@
 #monitor jtag_scan
+mon tpwr en
 monitor swdp_scan
 attach 1
 load
 compare-sections
 kill
-
+mon tpwr dis

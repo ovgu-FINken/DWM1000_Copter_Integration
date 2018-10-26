@@ -1,8 +1,7 @@
 #ifndef __mlat_h
 #define __mlat_h
 
-#include <Eigen/Dense.h>
-#include <Eigen/QR.h>
+#include <eigen/Eigen/Dense>
 using namespace Eigen;
 template<const uint8_t NUM_ANCHORS> class MLat {
 

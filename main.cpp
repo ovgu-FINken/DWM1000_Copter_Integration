@@ -1,7 +1,6 @@
 #include "mbed.h"
 #include "rtos.h"
 #include "ranging.h"
-#include <Eigen/Dense.h>
 #include "mlat.h"
 extern "C" {
 #include "libdw1000.h"
@@ -10,15 +9,18 @@ extern "C" {
 }
 
 // ADDR should be same as AC_ID to match telemetry
-#define ADDR 1
+#ifndef ADDR
+#define ADDR 2
+#endif
 //#define SWITCH_UART
 #define ECHO 0
 #define PPRZ_MSG_ID 254
-#define RANGE_INTERVALL_US 3000
+#define RANGE_INTERVALL_US 100
 #define TELEMETRY_BAUD 38400
 #define DEBUG_BAUD 115200
 #define IRQ_CHECKER_INTERVALL 100
 #define IRQ_CHECKER_THRESHOLD 3
+#define MLAT_BASE_ADDR 128
 
 using namespace Eigen;
 volatile bool sending;
@@ -31,9 +33,6 @@ volatile bool sending;
     </message>
  * */
 
-MatrixXd anchors(4, 3);
-
-
 DigitalOut redLed(LED2);
 DigitalOut greenLed(LED1);
 SPI spi(SPI_MOSI, SPI_MISO, SPI_SCK);
@@ -42,10 +41,10 @@ InterruptIn sIRQ(PA_0);
 DigitalInOut sReset(PA_1);
 #ifdef SWITCH_UART
 RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
-RawSerial uart2(PA_9, PA_10, DEBUG_BAUD);
+Serial uart2(PA_9, PA_10, DEBUG_BAUD);
 #else
 RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
-RawSerial uart2(PA_2, PA_3, DEBUG_BAUD);
+Serial uart2(PA_2, PA_3, DEBUG_BAUD);
 #endif
 circularBuffer UARTcb;
 circularBuffer DWMcb;
@@ -76,6 +75,8 @@ double tPropTick;
 DFrame txFrame;
 DFrame rxFrame;
 
+MLat<5> mlat;
+uint8_t mlat_range_target = 1;
 
 static void spiWrite(dwDevice_t* dev, const void* header, size_t headerLength,
         const void* data, size_t dataLength) {
@@ -187,15 +188,52 @@ void send_range(double range) {
     txFrame.seq++;
 	memcpy(txFrame.data, &range, sizeof(range));
     sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(range));
-    uart2.printf("%u, %u, %Lf\r\n", txFrame.src, txFrame.dest, range);
+    //uart2.printf("%u, %u, %Lf\r\n", txFrame.src, txFrame.dest, range);
      
 }
 
 void startRanging() {
     greenLed = 0;
-    rxFrame.src = 1;
+    rxFrame.src = mlat_range_target;
     send_rp(RANGE_0);
+    switch(mlat_range_target) {
+        case 1:
+            mlat_range_target = MLAT_BASE_ADDR;
+            break;
+        case MLAT_BASE_ADDR + 5:
+            mlat_range_target = 1;
+            break;
+        default:
+            mlat_range_target++;
+    }
     greenLed = 1;
+}
+
+void send_position() {
+    greenLed = 0;
+   	txFrame.type = RANGE_DATA;
+    txFrame.src = ADDR;
+    txFrame.dest = 0;
+    txFrame.seq++;
+    float x = (float) mlat.position[0];
+    float y = (float) mlat.position[1];
+    float z = (float) mlat.position[2];
+	memcpy(txFrame.data, &x, sizeof(x));
+	memcpy(txFrame.data+sizeof(x), &y, sizeof(y));
+	memcpy(txFrame.data+sizeof(x)+sizeof(y), &z, sizeof(z));
+    sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(x)+sizeof(y)+sizeof(z));
+    uart2.printf("%i, %.2f, %.2f, %2f\r\n", ADDR, x, y, z);
+    greenLed = 1;
+}
+
+void receive_position() {
+    float x;
+    float y;
+    float z;
+	memcpy(&x, rxFrame.data, sizeof(x));
+	memcpy(&y, rxFrame.data+sizeof(x), sizeof(y));
+	memcpy(&z, rxFrame.data+sizeof(x)+sizeof(y), sizeof(z));
+    uart2.printf("%i: %.2f, %.2f, %.2f\r\n", rxFrame.src, x, y, z);
 }
 
 
@@ -257,7 +295,7 @@ void receive_range_answer() {
     double range;
     dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE + sizeof(range));
     memcpy(&range, rxFrame.data, sizeof(range));
-    uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
+    //uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
     send_pprz_range_message(rxFrame.src, rxFrame.dest, range);
 }
 
@@ -271,6 +309,10 @@ void handle_broadcast_packet() {
             break;
         case PONG:
             register_node();
+            DWMReceive();
+            break;
+        case POSITION:
+            receive_position();
             DWMReceive();
             break;
         default:
@@ -294,6 +336,10 @@ void handle_own_packet() {
             break;
         case RANGE_TRANSFER: {
             double range = calculate_range();
+            if(rxFrame.src >= MLAT_BASE_ADDR) {
+                mlat.m[(rxFrame.src - MLAT_BASE_ADDR) % 5] = range;
+            }
+            //uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
             send_range(range);
             break;
                              }
@@ -483,15 +529,13 @@ void irq_cheker() {
 }
 
 int main() {
-    MLat<5> mlat;
-    mlat.anchors << 0,0,0,
-                    0,0,1,
-                    0,1,0,
-                    1,0,0,
-                    1,1,1;
+    mlat.anchors << 0  ,  0,  0,
+                    .45,.60,  0,
+                    .0 ,.60,  0,
+                    .0 ,  0,.30,
+                    .45,  0,.30;
     mlat.position << .5,.5,.5;
     mlat.m << 0, 1, 1, 1, 1.41;
-    mlat.iterative_step();
     initialiseBuffers();
     t_irq.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
     t_irq.set_priority(osPriorityHigh);
@@ -502,18 +546,19 @@ int main() {
     uart1.attach(&serialRead,Serial::RxIrq);
 
     uint8_t WriteBuffer[256+4];
-#if ADDR != 1
+#if (ADDR != 1) && (ADDR < MLAT_BASE_ADDR)
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
+    IRQqueue.call_every(1000, send_position);
 #endif
     IRQqueue.call_every(IRQ_CHECKER_INTERVALL, irq_cheker);
     while (true){
         greenLed = 1;
-        /*
-        if(dwm->deviceMode == IDLE_MODE) {
-            sending = false;
-            DWMReceive();
-        }
-        */
+
+#if ADDR < MLAT_BASE_ADDR
+        mlat.iterative_step();
+        Thread::yield();
+#endif
+
         uint8_t l = parsePPRZ(&UARTcb);
         if(l){
             WriteBuffer[0] = ADDR;

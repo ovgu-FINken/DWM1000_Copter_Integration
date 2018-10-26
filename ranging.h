@@ -27,6 +27,7 @@ enum FrameType{
     RANGE_TRANSFER=4,
     RANGE_DATA=5,
     RANGE_REQUEST=6,
+    POSITION=7,
     DATA_FRAME=42,
     PING=254,
     PONG=255

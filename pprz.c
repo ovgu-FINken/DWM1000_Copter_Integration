@@ -1,6 +1,7 @@
 #include "pprz.h"
 #include "circular_buffer.h"
 
+
 enum PPRZ_STATUS check_pprz(struct circularBuffer* cb) {
     size_t fill = circularBuffer_fill(cb);
     if(fill < 5)

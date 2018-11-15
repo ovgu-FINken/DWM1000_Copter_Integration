@@ -23,7 +23,6 @@ void initialiseDWM();
 void startDWM();
 
 void sendDWM(uint8_t* data, int length);
-void send_rp(FrameType type);
 void DWMReceive();
 
 #endif

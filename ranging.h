@@ -11,6 +11,16 @@ extern "C" {
 // size of the ranging frame without header
 #define NO_DATA_FRAME_SIZE 4
 
+// variables for _current_ tof measurement
+extern dwTime_t tStartRound1;
+extern dwTime_t tStartReply1;
+extern dwTime_t tEndReply1;
+extern dwTime_t tEndRound2;
+extern dwTime_t tStartReply2;
+extern dwTime_t tEndReply2;
+extern dwTime_t tDelay;
+
+// Dataframe for wireless transmission - contains 15 Byte of Buffer space for convenience
 typedef struct __attribute__((packed, aligned(1))) DataFrame {
     uint8_t src;
     uint8_t dest;
@@ -41,4 +51,7 @@ static const double tsfreq = 499.2e6 * 128; // Timestamp counter frequency
 static const double speedOfLight = 299792458.0; // Speed of light in m/s
 
 double calculateDistanceFromTicks(uint64_t tprop);
+double calculate_range();
+void resetRangeVariables();
+
 #endif // include guard

@@ -67,6 +67,7 @@ static void reset(dwDevice_t* dev)
     wait(0.1);
     redLed = 0;
     sReset.input();
+    resetRangeVariables();
 }
 
 static void delayms(dwDevice_t* dev, unsigned int delay)
@@ -129,13 +130,6 @@ void sendDWM(uint8_t* data, int length) {
     spi.unlock();
 }
 
-void send_rp(FrameType type) {
-    txFrame.type = type;
-    txFrame.src = ADDR;
-    txFrame.dest = rxFrame.src;
-    txFrame.seq++;
-    sendDWM((uint8_t*)&txFrame, NO_DATA_FRAME_SIZE);
-}
 
 void DWMReceive() {
     if(sending)

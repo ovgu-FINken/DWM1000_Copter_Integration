@@ -50,5 +50,7 @@ template<const uint8_t NUM_ANCHORS> class MLat {
 
         }
 };
+extern MLat<5> mlat; // multilateration object
+void initialiseMlat();
 
 #endif //include guard

@@ -2,17 +2,11 @@
 #define __dwm_logic_h
 #include "mbed.h"
 #include "ranging.h"
+#include "node_config.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
 }
-
-
-#define IRQ_CHECKER_INTERVALL 100
-#define IRQ_CHECKER_THRESHOLD 3
-#ifndef ADDR
-#define ADDR 2
-#endif
 
 extern circularBuffer DWMcb;
 extern dwDevice_t* dwm;

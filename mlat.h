@@ -2,6 +2,7 @@
 #define __mlat_h
 
 #include <eigen/Eigen/Dense>
+#include "node_config.h"
 using namespace Eigen;
 template<const uint8_t NUM_ANCHORS> class MLat {
 

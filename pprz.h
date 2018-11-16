@@ -1,8 +1,10 @@
 #ifndef __pprz_h
 #define __pprz_h
 
+extern "C" {
 #include "circular_buffer.h"
-#define PPRZ_RANGE_MSG_ID 254
+}
+#include "node_config.h"
 #define PPRZ_RANGE_MSG_SIZE 4+2+2+sizeof(double)
 
 /*
@@ -19,8 +21,8 @@ enum PPRZ_STATUS {
     PPRZ_BROKEN
 };
 
-enum PPRZ_STATUS check_pprz(struct circularBuffer* cb);
-uint8_t parsePPRZ(struct circularBuffer* cb);
+enum PPRZ_STATUS check_pprz(circularBuffer* cb);
+uint8_t parsePPRZ(circularBuffer* cb);
 void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, double range);
 
 #endif // include guard

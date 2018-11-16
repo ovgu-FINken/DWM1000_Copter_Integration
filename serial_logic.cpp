@@ -4,12 +4,12 @@
 circularBuffer UARTcb;
 uint8_t UARTcb_data[256];
 
-#ifdef SWITCH_UART
-RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
-Serial uart2(PA_9, PA_10, DEBUG_BAUD);
-#else
+#if SWITCH_UART
 RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
 Serial uart2(PA_2, PA_3, DEBUG_BAUD);
+#else
+RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
+Serial uart2(PA_9, PA_10, DEBUG_BAUD);
 #endif
 
 void serialRead() {

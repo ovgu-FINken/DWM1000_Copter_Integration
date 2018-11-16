@@ -5,9 +5,9 @@
 extern "C" {
 #include "libdw1000.h"
 }
+
 // offset of the ranging result in meters
 #define MAGIC_RANGE_OFFSET 153.7
-
 // size of the ranging frame without header
 #define NO_DATA_FRAME_SIZE 4
 

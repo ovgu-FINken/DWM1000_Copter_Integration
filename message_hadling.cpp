@@ -197,3 +197,10 @@ void send_rp(FrameType type) {
     txFrame.seq++;
     sendDWM((uint8_t*)&txFrame, NO_DATA_FRAME_SIZE);
 }
+
+void attach_message_handlers() {
+    dwAttachSentHandler(dwm, txcallback);
+    dwAttachReceivedHandler(dwm, rxcallback);
+    dwAttachReceiveTimeoutHandler(dwm, failcallback);
+    dwAttachReceiveFailedHandler(dwm, failcallback);
+}

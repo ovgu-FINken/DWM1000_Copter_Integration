@@ -1,14 +1,11 @@
 #ifndef __serial_logic_h
 #define __serial_logic_h
 #include "mbed.h"
+#include "node_config.h"
 extern "C" {
 #include "circular_buffer.h"
 }
 
-//#define SWITCH_UART
-#define TELEMETRY_BAUD 38400
-#define DEBUG_BAUD 115200
-#define ECHO 0
 
 extern RawSerial uart1;
 extern Serial uart2;

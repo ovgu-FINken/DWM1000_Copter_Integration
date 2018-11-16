@@ -1,4 +1,5 @@
 #include "mbed.h"
+#include "node_config.h"
 #include "rtos.h"
 #include "ranging.h"
 #include "mlat.h"
@@ -13,8 +14,6 @@ extern "C" {
 #include "circular_buffer.h"
 }
 
-// ADDR should be same as AC_ID to match telemetry
-#define RANGE_INTERVALL_US 100
 
 using namespace Eigen;
 
@@ -42,10 +41,7 @@ int main() {
     t_irq.start(callback(&IRQqueue, &EventQueue::dispatch_forever));
     t_irq.set_priority(osPriorityHigh);
     initialiseDWM();
-    dwAttachSentHandler(dwm, txcallback);
-    dwAttachReceivedHandler(dwm, rxcallback);
-    dwAttachReceiveTimeoutHandler(dwm, failcallback);
-    dwAttachReceiveFailedHandler(dwm, failcallback);
+    attach_message_handlers();
     startDWM();
     uart2.printf("Start Ranging\n");
 
@@ -56,10 +52,11 @@ int main() {
 #endif
     while (true){
         greenLed = 1;
-
+#if MLAT_ACTIVE
 #if ADDR < MLAT_BASE_ADDR
         mlat.iterative_step();
         Thread::yield();
+#endif
 #endif
 
         uint8_t l = parsePPRZ(&UARTcb);

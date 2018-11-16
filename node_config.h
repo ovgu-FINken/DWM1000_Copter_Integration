@@ -12,6 +12,12 @@
 #define MLAT_BASE_ADDR 128
 #endif
 
+// Flag to turn off multilateration computation
+// multilateration uses an anytime, iterative solver that will consume computation power unless turned off
+#ifndef MLAT_ACTIVE
+#define MLAT_ACTIVE 1
+#endif
+
 // After this inervall the next automatic ranging is started
 #define RANGE_INTERVALL_US 100
 

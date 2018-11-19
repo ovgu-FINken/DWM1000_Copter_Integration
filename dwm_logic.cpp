@@ -67,7 +67,6 @@ static void reset(dwDevice_t* dev)
     wait(0.1);
     redLed = 0;
     sReset.input();
-    resetRangeVariables();
 }
 
 static void delayms(dwDevice_t* dev, unsigned int delay)

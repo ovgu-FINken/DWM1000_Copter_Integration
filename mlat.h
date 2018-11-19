@@ -1,6 +1,4 @@
-#ifndef __mlat_h
-#define __mlat_h
-
+#pragma once
 #include <eigen/Eigen/Dense>
 #include "node_config.h"
 using namespace Eigen;
@@ -53,5 +51,3 @@ template<const uint8_t NUM_ANCHORS> class MLat {
 };
 extern MLat<5> mlat; // multilateration object
 void initialiseMlat();
-
-#endif //include guard

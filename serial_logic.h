@@ -1,5 +1,4 @@
-#ifndef __serial_logic_h
-#define __serial_logic_h
+#pragma once
 #include "mbed.h"
 #include "node_config.h"
 extern "C" {
@@ -15,4 +14,3 @@ void initialseSerial();
 void serialRead();
 void sendUART(uint8_t* data, int length);
 
-#endif

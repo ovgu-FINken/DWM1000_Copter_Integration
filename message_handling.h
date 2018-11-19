@@ -1,10 +1,9 @@
-#ifndef __message_handling_h
-#define __message_handling_h
-
+#pragma once
 #include "node_config.h"
 #include "ranging.h"
 #include "dwm_logic.h"
 #include "pprz.h"
+#include "dFrame.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -17,4 +16,3 @@ void send_rp(FrameType type);
 void send_position();
 void attach_message_handlers();
 
-#endif

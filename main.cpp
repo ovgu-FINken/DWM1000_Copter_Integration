@@ -36,6 +36,7 @@ void startRanging() {
 }
 
 int main() {
+    resetRangeVariables();
     initialseSerial();
     initialiseMlat();
     t_irq.start(callback(&IRQqueue, &EventQueue::dispatch_forever));

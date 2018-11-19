@@ -1,9 +1,5 @@
-#ifndef __leds_h
-#define __leds_h
-
+#pragma once
 #include "mbed.h"
 
 extern DigitalOut redLed;
 extern DigitalOut greenLed;
-
-#endif

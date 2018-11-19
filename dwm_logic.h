@@ -1,8 +1,7 @@
-#ifndef __dwm_logic_h
-#define __dwm_logic_h
+#pragma once
 #include "mbed.h"
-#include "ranging.h"
 #include "node_config.h"
+#include "dFrame.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -19,4 +18,3 @@ void startDWM();
 void sendDWM(uint8_t* data, int length);
 void DWMReceive();
 
-#endif

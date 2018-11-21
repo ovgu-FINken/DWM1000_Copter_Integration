@@ -53,7 +53,7 @@ uint8_t circularBuffer_read_element( struct circularBuffer* cb ) {
 }
 
 int circularBuffer_read(struct circularBuffer* cb, uint8_t* Buf, size_t l) {
-    if(circularBuffer_fill < l) {
+    if(circularBuffer_fill(cb) < l) {
         return 0; 
     }
     for(size_t i = 0; i<l; i++) {

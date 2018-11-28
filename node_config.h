@@ -1,7 +1,7 @@
-#ifndef __node_config_h
-#define __node_config_h
-
+#pragma once
 // Node Address for wireless interface
+#include "cstdint"
+extern uint8_t node_address;
 #ifndef ADDR
 #define ADDR 2
 #endif
@@ -45,5 +45,3 @@
 
 // Disable/Enable UART-Echo (puts characters to output in UART-isr, only in telemetry UART)
 #define ECHO 0
-
-#endif

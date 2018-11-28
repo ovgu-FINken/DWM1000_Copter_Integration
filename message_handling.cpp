@@ -6,7 +6,7 @@
 void send_range_transfer() {
     dwGetReceiveTimestamp(dwm, &tEndRound2);
    	txFrame.type = RANGE_TRANSFER;
-    txFrame.src = ADDR;
+    txFrame.src = node_address;
     txFrame.dest = rxFrame.src;
     txFrame.seq++;
 	memcpy(txFrame.data, tStartReply1.raw, 5);
@@ -17,7 +17,7 @@ void send_range_transfer() {
 
 void send_range(double range) {
    	txFrame.type = RANGE_DATA;
-    txFrame.src = ADDR;
+    txFrame.src = node_address;
     txFrame.dest = rxFrame.src;
     txFrame.seq++;
 	memcpy(txFrame.data, &range, sizeof(range));
@@ -27,7 +27,7 @@ void send_range(double range) {
 void send_position() {
     greenLed = 0;
    	txFrame.type = RANGE_DATA;
-    txFrame.src = ADDR;
+    txFrame.src = node_address;
     txFrame.dest = 0;
     txFrame.seq++;
     float x = (float) mlat.position[0];
@@ -37,7 +37,7 @@ void send_position() {
 	memcpy(txFrame.data+sizeof(x), &y, sizeof(y));
 	memcpy(txFrame.data+sizeof(x)+sizeof(y), &z, sizeof(z));
     sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(x)+sizeof(y)+sizeof(z));
-    uart2.printf("%i, %.2f, %.2f, %2f\r\n", ADDR, x, y, z);
+    uart2.printf("%i, %.2f, %.2f, %2f\r\n", node_address, x, y, z);
     greenLed = 1;
 }
 
@@ -168,31 +168,31 @@ void failcallback(dwDevice_t *dev) {
 
 void rxcallback(dwDevice_t *dev)
 { 
-    dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
-    if(rxFrame.src == ADDR) {
-        uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");
-        return;
-    }
-    switch(rxFrame.dest) {
-        case ADDR:
-            handle_own_packet();
-            break;
-        case 0:
-            handle_broadcast_packet();
-            break;
-        case 255:
-            handle_broadcast_packet();
-            break;
-        default:
-            handle_foreign_packet();
-            break;
-    }
+  dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
+  if(rxFrame.src == node_address) {
+    uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");
     return;
+  }
+  switch(rxFrame.dest) {
+    case 0:
+      handle_broadcast_packet();
+      break;
+    case 255:
+      handle_broadcast_packet();
+      break;
+    default:
+      if(rxFrame.dest == node_address)
+        handle_own_packet();
+      else
+        handle_foreign_packet();
+      break;
+  }
+  return;
 }
 
 void send_rp(FrameType type) {
     txFrame.type = type;
-    txFrame.src = ADDR;
+    txFrame.src = node_address;
     txFrame.dest = rxFrame.src;
     txFrame.seq++;
     sendDWM((uint8_t*)&txFrame, NO_DATA_FRAME_SIZE);

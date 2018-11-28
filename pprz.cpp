@@ -88,3 +88,11 @@ void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, do
     buffer[idx++] = checksumA;
     buffer[idx++] = checksumB;
 }
+
+uint8_t get_pkg_sender_id(circularBuffer* cb) {
+  return circularBuffer_peek(cb, 3);
+}
+
+uint8_t get_pkg_msg_id(circularBuffer* cb) {
+  return circularBuffer_peek(cb, 4);
+}

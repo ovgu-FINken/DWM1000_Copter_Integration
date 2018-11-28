@@ -62,7 +62,7 @@ int main() {
 
         uint8_t l = parsePPRZ(&UARTcb);
         if(l){
-            WriteBuffer[0] = ADDR;
+            WriteBuffer[0] = node_address;
             WriteBuffer[1] = 0; // Broacast
             WriteBuffer[2] = DATA_FRAME;
             WriteBuffer[3] = txFrame.seq++;

@@ -15,11 +15,11 @@ extern uint8_t node_address;
 // Flag to turn off multilateration computation
 // multilateration uses an anytime, iterative solver that will consume computation power unless turned off
 #ifndef MLAT_ACTIVE
-#define MLAT_ACTIVE 1
+#define MLAT_ACTIVE 0
 #endif
 
 // After this inervall the next automatic ranging is started
-#define RANGE_INTERVALL_US 100
+#define RANGE_INTERVALL_US 1000
 
 // Intervall for checking wether the IRQ pin is not going to low again
 // IRQ checking function in dwm_logic.h/cpp
@@ -34,7 +34,7 @@ extern uint8_t node_address;
 // By default UART1 is used for PPRZ, UART2 is used for debug/range output
 // For implementation details of UART look into serial_logic.h/cpp
 #ifndef SWITCH_UART
-#define SWITCH_UART 0
+#define SWITCH_UART 1
 #endif
 
 // Baudrate of telemetry UART

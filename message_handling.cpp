@@ -3,6 +3,12 @@
 #include "serial_logic.h"
 #include "leds.h"
 
+void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
+    uint8_t message[PPRZ_RANGE_MSG_SIZE];
+    construct_pprz_range_message(message, src, dest, range);
+    sendUART(message, sizeof(message));
+}
+
 void send_range_transfer() {
     dwGetReceiveTimestamp(dwm, &tEndRound2);
    	txFrame.type = RANGE_TRANSFER;
@@ -22,6 +28,7 @@ void send_range(double range) {
     txFrame.seq++;
 	memcpy(txFrame.data, &range, sizeof(range));
     sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(range));
+    send_pprz_range_message(txFrame.src, txFrame.dest, range);
 }
 
 void send_position() {
@@ -83,11 +90,6 @@ void handle_data_frame() {
     DWMReceive();
 }
 
-void send_pprz_range_message(uint8_t src, uint8_t dest, double range) {
-    uint8_t message[PPRZ_RANGE_MSG_SIZE];
-    construct_pprz_range_message(message, src, dest, range);
-    sendUART(message, sizeof(message));
-}
 
 void receive_range_answer() {
     double range;
@@ -171,6 +173,7 @@ void rxcallback(dwDevice_t *dev)
   dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
   if(rxFrame.src == node_address) {
     uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");
+    DWMReceive();
     return;
   }
   switch(rxFrame.dest) {

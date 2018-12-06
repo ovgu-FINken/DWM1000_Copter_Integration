@@ -108,7 +108,7 @@ void startDWM(){
     dwNewConfiguration(dwm);
     dwSetDefaults(dwm);
     dwEnableMode(dwm, MODE_SHORTDATA_MID_ACCURACY);
-    dwSetChannel(dwm, CHANNEL_7);
+    dwSetChannel(dwm, CHANNEL_5);
     dwSetPreambleCode(dwm, PREAMBLE_CODE_64MHZ_9);
     dwCommitConfiguration(dwm);
     //dwReceivePermanently(dwm, true);

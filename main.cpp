@@ -62,6 +62,9 @@ int main() {
 
         uint8_t l = parsePPRZ(&UARTcb);
         if(l){
+            if(get_pkg_msg_id(&UARTcb) == PPRZ_ALIVE_MSG_ID) {
+              node_address = get_pkg_sender_id(&UARTcb);
+            }
             WriteBuffer[0] = node_address;
             WriteBuffer[1] = 0; // Broacast
             WriteBuffer[2] = DATA_FRAME;

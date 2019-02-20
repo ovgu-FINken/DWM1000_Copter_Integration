@@ -71,8 +71,8 @@ void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, do
     /* ABDE = 4; C0+C1 = 2; C2=2+sizeof(range) */
     uint8_t idx = 0;
     buffer[idx++] = 0x99; // A
-    buffer[idx++] = sizeof(buffer); // Room for B
-    buffer[idx++] = src; // C0
+    buffer[idx++] = sizeof(range) + 2 + 6; // Room for B
+    buffer[idx++] = node_address; // C0
     buffer[idx++] = PPRZ_RANGE_MSG_ID; // C1
     // C2 Data
     buffer[idx++] = src; 
@@ -96,3 +96,4 @@ uint8_t get_pkg_sender_id(circularBuffer* cb) {
 uint8_t get_pkg_msg_id(circularBuffer* cb) {
   return circularBuffer_peek(cb, 4);
 }
+

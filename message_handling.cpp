@@ -137,7 +137,7 @@ void handle_own_packet() {
             dwGetData(dwm, (uint8_t*) &rxFrame, sizeof(rxFrame));
             double range = calculate_range();
             if(rxFrame.src >= MLAT_BASE_ADDR) {
-                mlat.m[(rxFrame.src - MLAT_BASE_ADDR) % 5] = range;
+                mlat.m[(rxFrame.src - MLAT_BASE_ADDR) % 6] = range;
             }
             //uart2.printf("%u, %u, %Lf\r\n", rxFrame.src, rxFrame.dest, range);
             send_range(range);
@@ -169,7 +169,7 @@ void failcallback(dwDevice_t *dev) {
 }
 
 void rxcallback(dwDevice_t *dev)
-{ 
+{
   dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
   if(rxFrame.src == node_address) {
     uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");

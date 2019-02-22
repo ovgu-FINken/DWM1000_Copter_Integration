@@ -19,7 +19,7 @@ extern uint8_t node_address;
 #endif
 
 // After this inervall the next automatic ranging is started
-#define RANGE_INTERVALL_US 1000
+#define RANGE_INTERVALL_US 20
 
 // Intervall for checking wether the IRQ pin is not going to low again
 // IRQ checking function in dwm_logic.h/cpp

@@ -26,7 +26,7 @@ void startRanging() {
         case 1:
             mlat_range_target = MLAT_BASE_ADDR;
             break;
-        case MLAT_BASE_ADDR + 5:
+        case MLAT_BASE_ADDR + 6:
             mlat_range_target = 1;
             break;
         default:

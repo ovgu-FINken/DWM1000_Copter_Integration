@@ -30,9 +30,11 @@ extern uint8_t node_address;
 // define the intervall between measuerements in ms
 // define the i2c adress of the height sensors (7 bit adress needs to be shifted once to match 8 bit structure)
 // e.g. adress is 0x30 --> HEIGHT_SENSOR_ADDR = 0x60
+// size of the height-message
 #define ENABLE_HEIGHT true
-#define HEIGHT_INTERVALL_MS 100
+#define HEIGHT_INTERVALL_MS 1000
 #define HEIGHT_SENSOR_ADDR 0x60
+#define HEIGHT_MESSAGESIZE 8
 
 // Message ID of the range message send over UART in PPRZ protocol
 // for more detail look into pprz.h/pprz.cpp

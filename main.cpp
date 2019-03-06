@@ -15,6 +15,9 @@ extern "C" {
 }
 #if ENABLE_HEIGHT == true
 I2C i2c(PB_7,PB_6); // todo: auslagern in i2c datei ?
+uint8_t i2c_msg_buffer[HEIGHT_MESSAGESIZE];
+bool height_update = false;
+uint16_t height;
 #endif
 
 using namespace Eigen;
@@ -43,9 +46,12 @@ void getHeigth() {
   cmd[1] = 0x00;
   cmd[2] = 0x00;
   i2c.read(HEIGHT_SENSOR_ADDR, cmd, 3);
-  int height = int(cmd[0]<<8 | cmd[1]);
-  //device.printf("Wert = %d\n\r", height);
-  //device.printf("\n\r");
+  height = (uint16_t)(cmd[0]<<8 | cmd[1]);
+  uart2.printf("Wert = %d\n\r", height);
+  uart2.printf("\n\r");
+  //constuct_pprz_height_message(i2c_msg_buffer, height);
+  //sendDWM(i2c_msg_buffer, sizeof(i2c_msg_buffer));
+  height_update = true;
 }
 #endif
 
@@ -63,7 +69,7 @@ int main() {
     uint8_t WriteBuffer[256+4];
 #if (ADDR != 1) && (ADDR < MLAT_BASE_ADDR)
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
-    IRQqueue.call_every(1000, send_position);
+    IRQqueue.call_every(500, send_position);
 #endif
 #if ENABLE_HEIGHT == true
     IRQqueue.call_every(HEIGHT_INTERVALL_MS, getHeigth);
@@ -97,5 +103,23 @@ int main() {
             sendUART(WriteBuffer, l);
         }
         Thread::yield();
+
+#if ENABLE_HEIGHT == true
+
+        if(height_update == true){
+          constuct_pprz_height_message(i2c_msg_buffer, height);
+          WriteBuffer[0] = node_address;
+          WriteBuffer[1] = 0; // Broacast
+          WriteBuffer[2] = DATA_FRAME;
+          WriteBuffer[3] = txFrame.seq++;
+          for(uint i = 0; i< sizeof(i2c_msg_buffer); i++){
+            WriteBuffer[i+4] = i2c_msg_buffer[i];
+          }
+          sendDWM(WriteBuffer, 8+4);
+          height_update = false;
+          redLed = !redLed;
+        }
+
+#endif
     }
 }

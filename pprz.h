@@ -25,6 +25,7 @@ enum PPRZ_STATUS {
 enum PPRZ_STATUS check_pprz(circularBuffer* cb);
 uint8_t parsePPRZ(circularBuffer* cb);
 void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, double range);
+void constuct_pprz_height_message(uint8_t* buffer, uint16_t distance);
 uint8_t get_pkg_sender_id(circularBuffer* cb);
 uint8_t get_pkg_msg_id(circularBuffer* cb);
 

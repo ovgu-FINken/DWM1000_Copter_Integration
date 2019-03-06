@@ -89,15 +89,14 @@ void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, do
     buffer[idx++] = checksumB;
 }
 
-void constuct_pprz_height_message(int8_t* buffer, uint8_t module_nr, long distance){
-  /* ABDE = 4; C0+C1 = 2; C2=1+sizeof(distance) */
+void constuct_pprz_height_message(uint8_t* buffer, uint16_t distance){
+  /* ABDE = 4; C0+C1 = 2; C2=sizeof(distance) */
   uint8_t idx = 0;
   buffer[idx++] = 0x99; // A
-  buffer[idx++] = sizeof(distance) + 1 + 6; // Room for B
+  buffer[idx++] = HEIGHT_MESSAGESIZE; // Room for B
   buffer[idx++] = node_address; // C0
   buffer[idx++] = PPRZ_HEIGHT_MSG_ID; // C1
   // C2 Data
-  buffer[idx++] = module_nr;
   memcpy(&buffer[idx], &distance,  sizeof(distance));
   idx += sizeof(distance);
   uint8_t checksumA = 0;

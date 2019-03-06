@@ -75,7 +75,7 @@ void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, do
     buffer[idx++] = node_address; // C0
     buffer[idx++] = PPRZ_RANGE_MSG_ID; // C1
     // C2 Data
-    buffer[idx++] = src; 
+    buffer[idx++] = src;
     buffer[idx++] = dest;
     memcpy(&buffer[idx], &range,  sizeof(range));
     idx += sizeof(range);
@@ -89,6 +89,27 @@ void construct_pprz_range_message(uint8_t* buffer, uint8_t src, uint8_t dest, do
     buffer[idx++] = checksumB;
 }
 
+void constuct_pprz_height_message(int8_t* buffer, uint8_t module_nr, long distance){
+  /* ABDE = 4; C0+C1 = 2; C2=1+sizeof(distance) */
+  uint8_t idx = 0;
+  buffer[idx++] = 0x99; // A
+  buffer[idx++] = sizeof(distance) + 1 + 6; // Room for B
+  buffer[idx++] = node_address; // C0
+  buffer[idx++] = PPRZ_HEIGHT_MSG_ID; // C1
+  // C2 Data
+  buffer[idx++] = module_nr;
+  memcpy(&buffer[idx], &distance,  sizeof(distance));
+  idx += sizeof(distance);
+  uint8_t checksumA = 0;
+  uint8_t checksumB = 0;
+  for(uint8_t i = 1; i < idx; i++) {
+      checksumA += buffer[i];
+      checksumB += checksumA;
+  }
+  buffer[idx++] = checksumA;
+  buffer[idx++] = checksumB;
+}
+
 uint8_t get_pkg_sender_id(circularBuffer* cb) {
   return circularBuffer_peek(cb, 3);
 }
@@ -96,4 +117,3 @@ uint8_t get_pkg_sender_id(circularBuffer* cb) {
 uint8_t get_pkg_msg_id(circularBuffer* cb) {
   return circularBuffer_peek(cb, 4);
 }
-

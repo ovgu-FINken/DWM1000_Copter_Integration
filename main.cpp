@@ -13,7 +13,9 @@ extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
 }
-
+#if ENABLE_HEIGHT == true
+I2C i2c(PB_7,PB_6); // todo: auslagern in i2c datei ?
+#endif
 
 using namespace Eigen;
 
@@ -34,6 +36,18 @@ void startRanging() {
     }
     greenLed = 1;
 }
+#if ENABLE_HEIGHT == true
+void getHeigth() {
+  char cmd[3];
+  cmd[0] = 0x01;
+  cmd[1] = 0x00;
+  cmd[2] = 0x00;
+  i2c.read(HEIGHT_SENSOR_ADDR, cmd, 3);
+  int height = int(cmd[0]<<8 | cmd[1]);
+  //device.printf("Wert = %d\n\r", height);
+  //device.printf("\n\r");
+}
+#endif
 
 int main() {
     resetRangeVariables();
@@ -51,6 +65,10 @@ int main() {
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
     IRQqueue.call_every(1000, send_position);
 #endif
+#if ENABLE_HEIGHT == true
+    IRQqueue.call_every(HEIGHT_INTERVALL_MS, getHeigth);
+#endif
+
     while (true){
         greenLed = 1;
 #if MLAT_ACTIVE

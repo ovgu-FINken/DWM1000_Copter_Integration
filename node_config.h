@@ -19,16 +19,25 @@ extern uint8_t node_address;
 #endif
 
 // After this inervall the next automatic ranging is started
-#define RANGE_INTERVALL_US 20
+#define RANGE_INTERVALL_US 100
 
 // Intervall for checking wether the IRQ pin is not going to low again
 // IRQ checking function in dwm_logic.h/cpp
 #define IRQ_CHECKER_INTERVALL 100
 #define IRQ_CHECKER_THRESHOLD 3
 
+// enable the height measurement
+// define the intervall between measuerements in ms
+// define the i2c adress of the height sensors (7 bit adress needs to be shifted once to match 8 bit structure)
+// e.g. adress is 0x30 --> HEIGHT_SENSOR_ADDR = 0x60
+#define ENABLE_HEIGHT true
+#define HEIGHT_INTERVALL_MS 100
+#define HEIGHT_SENSOR_ADDR 0x60
+
 // Message ID of the range message send over UART in PPRZ protocol
 // for more detail look into pprz.h/pprz.cpp
 #define PPRZ_RANGE_MSG_ID 254
+#define PPRZ_HEIGHT_MSG_ID 253 // oder so kp ?
 
 // SWITCH_UART: Defines wether to swtich the UARTs (in case one is not working soldered)
 // By default UART1 is used for PPRZ, UART2 is used for debug/range output

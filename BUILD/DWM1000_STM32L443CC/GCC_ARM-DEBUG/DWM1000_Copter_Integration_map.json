@@ -3,8 +3,8 @@
         "module": "[fill]", 
         "size": {
             ".data": 9, 
-            ".bss": 30, 
-            ".text": 171
+            ".bss": 34, 
+            ".text": 186
         }
     }, 
     {
@@ -82,17 +82,17 @@
     {
         "module": "main.o", 
         "size": {
-            ".data": 1, 
-            ".bss": 0, 
-            ".text": 505
+            ".data": 5, 
+            ".bss": 216, 
+            ".text": 647
         }
     }, 
     {
         "module": "mbed-os/drivers", 
         "size": {
             ".data": 4, 
-            ".bss": 156, 
-            ".text": 2770
+            ".bss": 212, 
+            ".text": 3126
         }
     }, 
     {
@@ -139,8 +139,8 @@
         "module": "mbed-os/targets", 
         "size": {
             ".data": 4, 
-            ".bss": 1336, 
-            ".text": 13574
+            ".bss": 1356, 
+            ".text": 18229
         }
     }, 
     {
@@ -201,8 +201,8 @@
     }, 
     {
         "summary": {
-            "static_ram": 13400, 
-            "total_flash": 90303
+            "static_ram": 13700, 
+            "total_flash": 95475
         }
     }
 ]

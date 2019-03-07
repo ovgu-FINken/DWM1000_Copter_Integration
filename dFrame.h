@@ -4,7 +4,7 @@ typedef struct __attribute__((packed, aligned(1))) DataFrame {
     uint8_t src;
     uint8_t dest;
     uint8_t type;
-    uint8_t seq; 
+    uint8_t seq;
     uint8_t data[15];
 }DFrame;
 

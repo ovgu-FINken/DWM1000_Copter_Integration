@@ -58,6 +58,7 @@ void receive_position() {
     uart2.printf("%i: %.2f, %.2f, %.2f\r\n", rxFrame.src, x, y, z);
 }
 
+
 void txcallback(dwDevice_t *dev){
     sending = false;
     switch(txFrame.type) {

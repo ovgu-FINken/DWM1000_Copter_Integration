@@ -20,6 +20,7 @@ bool height_update = false;
 uint16_t height;
 #endif
 
+
 using namespace Eigen;
 
 uint8_t mlat_range_target = 1;
@@ -101,6 +102,11 @@ int main() {
         if(l){
             circularBuffer_read(&DWMcb, WriteBuffer, l);
             sendUART(WriteBuffer, l);
+            if(WriteBuffer[3] == PPRZ_MOTOR_MSG_ID){ // get message ID
+              int32_t value = WriteBuffer[7] << 24 | WriteBuffer[6] << 16 | WriteBuffer[5] << 8 | WriteBuffer[4] ;
+              uart2.printf("MotorMovement is: %i \n\r", value);
+            }
+
         }
         Thread::yield();
 
@@ -121,5 +127,7 @@ int main() {
         }
 
 #endif
+
+
     }
 }

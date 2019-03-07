@@ -31,16 +31,19 @@ extern uint8_t node_address;
 // define the i2c adress of the height sensors (7 bit adress needs to be shifted once to match 8 bit structure)
 // e.g. adress is 0x30 --> HEIGHT_SENSOR_ADDR = 0x60
 // size of the height-message
-#define ENABLE_HEIGHT true
+#define ENABLE_HEIGHT false
 #define HEIGHT_INTERVALL_MS 1000
 #define HEIGHT_SENSOR_ADDR 0x60
 #define HEIGHT_MESSAGESIZE 8
+
+//enable Motor enables the motor for the Seilbahn (DOES NOT WORK TOGETHER WITH THE HEIGHT MEASUREMENT BECAUSE OF REUSED PINS)
+#define MOVE_MOTOR true
 
 // Message ID of the range message send over UART in PPRZ protocol
 // for more detail look into pprz.h/pprz.cpp
 #define PPRZ_RANGE_MSG_ID 254
 #define PPRZ_HEIGHT_MSG_ID 253 // oder so kp ?
-
+#define PPRZ_MOTOR_MSG_ID 252 // oder so kp ?
 // SWITCH_UART: Defines wether to swtich the UARTs (in case one is not working soldered)
 // By default UART1 is used for PPRZ, UART2 is used for debug/range output
 // For implementation details of UART look into serial_logic.h/cpp

@@ -1,10 +1,18 @@
 [
     {
+        "module": "AccelStepper.o", 
+        "size": {
+            ".data": 0, 
+            ".bss": 0, 
+            ".text": 1614
+        }
+    }, 
+    {
         "module": "[fill]", 
         "size": {
             ".data": 10, 
-            ".bss": 30, 
-            ".text": 177
+            ".bss": 34, 
+            ".text": 149
         }
     }, 
     {
@@ -28,7 +36,7 @@
         "size": {
             ".data": 1, 
             ".bss": 0, 
-            ".text": 1039
+            ".text": 1616
         }
     }, 
     {
@@ -82,9 +90,9 @@
     {
         "module": "main.o", 
         "size": {
-            ".data": 0, 
-            ".bss": 0, 
-            ".text": 385
+            ".data": 4, 
+            ".bss": 136, 
+            ".text": 549
         }
     }, 
     {
@@ -92,7 +100,7 @@
         "size": {
             ".data": 4, 
             ".bss": 156, 
-            ".text": 2770
+            ".text": 2692
         }
     }, 
     {
@@ -124,7 +132,7 @@
         "size": {
             ".data": 4, 
             ".bss": 378, 
-            ".text": 3212
+            ".text": 3265
         }
     }, 
     {
@@ -187,8 +195,8 @@
         "module": "serial_logic.o", 
         "size": {
             ".data": 4, 
-            ".bss": 480, 
-            ".text": 410
+            ".bss": 412, 
+            ".text": 156
         }
     }, 
     {
@@ -201,8 +209,8 @@
     }, 
     {
         "summary": {
-            "static_ram": 13400, 
-            "total_flash": 89983
+            "static_ram": 13476, 
+            "total_flash": 92035
         }
     }
 ]

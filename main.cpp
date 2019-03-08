@@ -9,6 +9,7 @@
 #include "message_handling.h"
 #include "leds.h"
 #include "pprz.h"
+#include "AccelStepper.h"
 extern "C" {
 #include "libdw1000.h"
 #include "circular_buffer.h"
@@ -18,6 +19,10 @@ I2C i2c(PB_7,PB_6); // todo: auslagern in i2c datei ?
 uint8_t i2c_msg_buffer[HEIGHT_MESSAGESIZE];
 bool height_update = false;
 uint16_t height;
+#endif
+#if MOVE_MOTOR == true
+AccelStepper stepper1(1, PA_10, PA_9);
+Timer t;
 #endif
 
 
@@ -56,6 +61,8 @@ void getHeigth() {
 }
 #endif
 
+
+
 int main() {
     resetRangeVariables();
     initialseSerial();
@@ -74,6 +81,12 @@ int main() {
 #endif
 #if ENABLE_HEIGHT == true
     IRQqueue.call_every(HEIGHT_INTERVALL_MS, getHeigth);
+#endif
+#if MOVE_MOTOR == true
+    stepper1.setMaxSpeed(MOTOR_MAX_SPEED);
+    stepper1.setAcceleration(MOTOR_ACCEL);
+    stepper1.setMinPulseWidth(200);
+    t.start();
 #endif
 
     while (true){
@@ -102,13 +115,23 @@ int main() {
         if(l){
             circularBuffer_read(&DWMcb, WriteBuffer, l);
             sendUART(WriteBuffer, l);
+#if MOVE_MOTOR == true
             if(WriteBuffer[3] == PPRZ_MOTOR_MSG_ID){ // get message ID
               int32_t value = WriteBuffer[7] << 24 | WriteBuffer[6] << 16 | WriteBuffer[5] << 8 | WriteBuffer[4] ;
               uart2.printf("MotorMovement is: %i \n\r", value);
+              stepper1.moveTo(value);
             }
-
+            if(WriteBuffer[3] == PPRZ_MOTOR_RST_ID){
+              stepper1.setCurrentPosition(0);
+              redLed = 1;
+            }
+#endif
         }
         Thread::yield();
+#if MOVE_MOTOR == true
+          stepper1.run();
+#endif
+
 
 #if ENABLE_HEIGHT == true
 

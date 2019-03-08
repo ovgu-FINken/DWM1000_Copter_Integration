@@ -38,12 +38,16 @@ extern uint8_t node_address;
 
 //enable Motor enables the motor for the Seilbahn (DOES NOT WORK TOGETHER WITH THE HEIGHT MEASUREMENT BECAUSE OF REUSED PINS)
 #define MOVE_MOTOR true
+#define MOTOR_MAX_SPEED 5000
+#define MOTOR_ACCEL 400
 
 // Message ID of the range message send over UART in PPRZ protocol
 // for more detail look into pprz.h/pprz.cpp
 #define PPRZ_RANGE_MSG_ID 254
 #define PPRZ_HEIGHT_MSG_ID 253 // oder so kp ?
 #define PPRZ_MOTOR_MSG_ID 252 // oder so kp ?
+#define PPRZ_MOTOR_RST_ID 222 // oder so  
+
 // SWITCH_UART: Defines wether to swtich the UARTs (in case one is not working soldered)
 // By default UART1 is used for PPRZ, UART2 is used for debug/range output
 // For implementation details of UART look into serial_logic.h/cpp

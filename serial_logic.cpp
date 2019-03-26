@@ -7,7 +7,7 @@ uint8_t UARTcb_data[256];
 #if SWITCH_UART &&  MOVE_MOTOR == false
 RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
 Serial uart2(PA_2, PA_3, DEBUG_BAUD);
-#elseif !SWITCH_UART && MOVE_MOTOR == false
+#elif !SWITCH_UART && MOVE_MOTOR == false
 RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
 Serial uart2(PA_9, PA_10, DEBUG_BAUD);
 #else

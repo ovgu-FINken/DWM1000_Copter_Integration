@@ -37,7 +37,8 @@ void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply
 }
 
 double calculateDistanceFromTicks(uint64_t tprop) {
-    return speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
+    //return speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
+		return 1.07 * speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
 }
 
 double calculate_range() {
@@ -51,7 +52,7 @@ double calculate_range() {
 	calculateDeltaTime(&tStartReply1, &tEndReply1, &tReply1);
 	calculateDeltaTime(&tStartReply2, &tEndReply2, &tReply2);
 	calculateDeltaTime(&tEndReply1, &tEndRound2, &tRound2);
-	
+
 	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
     return calculateDistanceFromTicks(tPropTick);
 }
@@ -65,9 +66,7 @@ void resetRangeVariables() {
     tEndReply2.full = 0;
 
     tDelay.full = 0;
-    tDelay.full = 74756096;//63897600*5; //5msec 
+    tDelay.full = 74756096;//63897600*5; //5msec
     rxFrame.type = 0;
     txFrame.type = 0;
 }
-
-

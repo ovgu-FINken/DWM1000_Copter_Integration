@@ -2,9 +2,9 @@
     {
         "module": "[fill]", 
         "size": {
-            ".data": 9, 
+            ".data": 10, 
             ".bss": 30, 
-            ".text": 171
+            ".text": 133
         }
     }, 
     {
@@ -82,9 +82,9 @@
     {
         "module": "main.o", 
         "size": {
-            ".data": 1, 
+            ".data": 0, 
             ".bss": 0, 
-            ".text": 505
+            ".text": 341
         }
     }, 
     {
@@ -148,7 +148,7 @@
         "size": {
             ".data": 0, 
             ".bss": 260, 
-            ".text": 1320
+            ".text": 1114
         }
     }, 
     {
@@ -202,7 +202,7 @@
     {
         "summary": {
             "static_ram": 13400, 
-            "total_flash": 90303
+            "total_flash": 89895
         }
     }
 ]

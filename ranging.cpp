@@ -38,7 +38,7 @@ void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply
 
 double calculateDistanceFromTicks(uint64_t tprop) {
     //return speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
-		return 1.07 * speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET;
+		return (speedOfLight * tprop / tsfreq - MAGIC_RANGE_OFFSET)	/ 1.07 ;
 }
 
 double calculate_range() {

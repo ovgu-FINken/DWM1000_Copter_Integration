@@ -33,7 +33,7 @@ void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result
 
 
 void calculatePropagationFormula(const uint64_t& tRound1, const uint64_t& tReply1, const uint64_t& tRound2, const uint64_t& tReply2, double& tPropTick){
-	tPropTick = (double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2);
+	tPropTick = (double)((tRound1 * tRound2) - (tReply1 * tReply2)) / (tRound1 + tReply1 + tRound2 + tReply2); // double reicht nicht (mögliche fehlerquelle)
 }
 
 double calculateDistanceFromTicks(uint64_t tprop) {

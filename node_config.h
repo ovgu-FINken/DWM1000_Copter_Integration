@@ -19,7 +19,7 @@ extern uint8_t node_address;
 #endif
 
 // After this inervall the next automatic ranging is started
-#define RANGE_INTERVALL_US 50 // works save with 100 ms delay (only one "real" positions update each second)
+#define RANGE_INTERVALL_US 100 // works save with 100 ms delay (only one "real" positions update each second)
 
 // Intervall for checking wether the IRQ pin is not going to low again
 // IRQ checking function in dwm_logic.h/cpp
@@ -31,8 +31,8 @@ extern uint8_t node_address;
 // define the i2c adress of the height sensors (7 bit adress needs to be shifted once to match 8 bit structure)
 // e.g. adress is 0x30 --> HEIGHT_SENSOR_ADDR = 0x60
 // size of the height-message
-#define ENABLE_HEIGHT false
-#define HEIGHT_INTERVALL_MS 100 // changed from 1000
+#define ENABLE_HEIGHT true
+#define HEIGHT_INTERVALL_MS 500 // changed from 1000
 #define HEIGHT_SENSOR_ADDR 0x60
 #define HEIGHT_MESSAGESIZE 8
 
@@ -56,7 +56,7 @@ extern uint8_t node_address;
 #endif
 
 // Baudrate of telemetry UART
-#define TELEMETRY_BAUD 38400
+#define TELEMETRY_BAUD 115200
 
 // Baudrate of debug UART
 #define DEBUG_BAUD 115200

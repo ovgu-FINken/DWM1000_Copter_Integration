@@ -5,13 +5,13 @@ For a starting point look into main.cpp and node_config.h. The program consists 
 ## Importing the project
 
 * ```git clone``` the repo
-* create virtualenv vEnv ```virtualenv --python=python2.7```
+* create virtualenv vEnv ```virtualenv --python=python2.7 vEnv```
   * install mbed-cli module ```pip install mbed-cli```
   * install dependancies ```pip install -r mbed-os/requirements.txt```
 * checkout the submodule ```git submodule update -i```
 
 ## Building
-* (load the right python env with pyhon2 and the mbed package installed) ```. vEnv/bin_/activate```
+* (load the right python env with pyhon2 and the mbed package installed) ```. vEnv/bin/activate```
 * Compile with ```ADDR=<Address of Node> make compile```
 
 ## Flashing

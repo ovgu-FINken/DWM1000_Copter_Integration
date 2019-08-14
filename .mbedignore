@@ -1,13 +1,3 @@
 lib/*
 libdw1000/test/*
-eigen/bench/*
-eigen/blas/*
-eigen/cmake/*
-eigen/demos/*
-eigen/debug/*
-eigen/doc/*
-eigen/failtest/*
-eigen/lapack/*
-eigen/scripts/*
-eigen/unsupported/*
-eigen/test/*
+eigen/*

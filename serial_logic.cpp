@@ -5,13 +5,13 @@ circularBuffer UARTcb;
 uint8_t UARTcb_data[256];
 
 #if SWITCH_UART &&  MOVE_MOTOR == false
-RawSerial uart1(PA_9, PA_10, TELEMETRY_BAUD);
-Serial uart2(PA_2, PA_3, DEBUG_BAUD);
+RawSerial uart1(SERIAL_TX, SERIAL_RX, TELEMETRY_BAUD);
+Serial uart2(PC_6, PC_7, DEBUG_BAUD);
 #elif !SWITCH_UART && MOVE_MOTOR == false
-RawSerial uart1(PA_2, PA_3, TELEMETRY_BAUD);
-Serial uart2(PA_9, PA_10, DEBUG_BAUD);
+RawSerial uart1(PC_6, PC_7, TELEMETRY_BAUD);
+Serial uart2(SERIAL_TX, SERIAL_RX, DEBUG_BAUD);
 #else
-Serial uart2(PA_2, PA_3, DEBUG_BAUD);
+Serial uart2(PC_6, PC_7, DEBUG_BAUD);
 #endif
 
 void serialRead() {

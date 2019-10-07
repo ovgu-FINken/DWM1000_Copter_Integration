@@ -1,0 +1,6 @@
+BUILD/NUCLEO_F411RE/GCC_ARM-DEBUG/mbed-os/platform/mbed_stats.o: \
+ mbed-os/platform/mbed_stats.c \
+ BUILD/NUCLEO_F411RE/GCC_ARM-DEBUG/mbed_config.h \
+ mbed-os/platform/mbed_stats.h mbed-os/platform/mbed_assert.h \
+ mbed-os/platform/mbed_preprocessor.h \
+ mbed-os/rtos/TARGET_CORTEX/rtx5/cmsis_os2.h

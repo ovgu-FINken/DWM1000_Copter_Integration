@@ -4,11 +4,11 @@
 
 dwDevice_t dwm_device;
 dwDevice_t* dwm = &dwm_device;
-SPI spi(PB_15, PB_14, PB_13);
+SPI spi(PD_4, PD_3, PD_1);
 volatile bool sending;
-DigitalOut cs(PB_12);
-InterruptIn sIRQ(PA_7);
-DigitalInOut sReset(PA_6);
+DigitalOut cs(PD_0);
+InterruptIn sIRQ(PD_5);
+DigitalInOut sReset(PD_2);
 circularBuffer DWMcb;
 uint8_t DWMcb_data[256];
 DFrame txFrame;

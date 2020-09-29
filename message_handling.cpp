@@ -169,7 +169,7 @@ void failcallback(dwDevice_t *dev) {
 }
 
 void rxcallback(dwDevice_t *dev)
-{ 
+{
   dwGetData(dwm, (uint8_t*) &rxFrame, NO_DATA_FRAME_SIZE);
   if(rxFrame.src == node_address) {
     uart2.printf("received own packet - shouldn't happen\r\npossibly the address was given to multiple nodes\r\n\n");

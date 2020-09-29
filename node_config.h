@@ -15,11 +15,11 @@ extern uint8_t node_address;
 // Flag to turn off multilateration computation
 // multilateration uses an anytime, iterative solver that will consume computation power unless turned off
 #ifndef MLAT_ACTIVE
-#define MLAT_ACTIVE 0
+#define MLAT_ACTIVE 1
 #endif
 
 // After this inervall the next automatic ranging is started
-#define RANGE_INTERVALL_US 1000
+#define RANGE_INTERVALL_US 20
 
 // Intervall for checking wether the IRQ pin is not going to low again
 // IRQ checking function in dwm_logic.h/cpp

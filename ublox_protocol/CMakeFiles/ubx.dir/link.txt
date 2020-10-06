@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/ubx.dir/ubx.cxx.o -o ubx 

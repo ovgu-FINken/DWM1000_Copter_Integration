@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/jonathan/ubx/ubx.cxx
+stdint.h
+-
+iostream
+-
+string
+-
+ubx.h
+/home/jonathan/ubx/ubx.h
+
+/home/jonathan/ubx/ubx.h
+

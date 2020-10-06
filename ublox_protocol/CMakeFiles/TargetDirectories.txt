@@ -1,0 +1,3 @@
+/home/jonathan/ubx/CMakeFiles/rebuild_cache.dir
+/home/jonathan/ubx/CMakeFiles/edit_cache.dir
+/home/jonathan/ubx/CMakeFiles/ubx.dir

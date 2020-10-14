@@ -26,7 +26,9 @@ uint8_t* ubx_msg_payload;
 uint8_t ubx_msg_ChecksumA;
 uint8_t ubx_msg_ChecksumB;
 bool packet_valid;
-uint8_t* received_msg; 
+uint8_t* received_msg;
+
+const uint MSG_LENGTH_MAX = 128; // maximum msg length; 
 
 
 typedef enum

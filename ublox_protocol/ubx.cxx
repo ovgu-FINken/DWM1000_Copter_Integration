@@ -35,15 +35,15 @@ uint8_t* calculate_checksum()
   uint8_t* checksum = new uint8_t[2];
   for(int i = 2; i<6+ubx_msg_length; i++)
   {
-    checksum[0] = checksum[0] + received_msg[i];
-    checksum[1] = checksum[1] + checksum[0];
+    checksum[0] = (uint8_t)(checksum[0] + received_msg[i]);
+    checksum[1] = (uint8_t)(checksum[1] + checksum[0]);
   }
   return checksum;
 }
 uint8_t* calculate_checksum(uint8_t* input)
 {
   uint8_t* checksum = new uint8_t[2];
-  for(int i = 2; i<(36-2); i++) // TO CHANGE !!!! (aparrently sizeof() does complete bullshit ?? )
+  for(int i = 2; i<(sizeof(input)-2); i++) // does size of work ?
   {
     checksum[0] = checksum[0] + input[i];
     checksum[1] = checksum[1] + checksum[0];
@@ -94,10 +94,10 @@ void parsing_statemaschine(uint8_t incoming)
     {
       uint8_t lengthLSB = static_cast<uint8_t>(ubx_msg_length);
       ubx_msg_length |= incoming << 8;
-      if(ubx_msg_length != 0)
+      if(ubx_msg_length != 0 && ubx_msg_length < MSG_LENGTH_MAX)
       {
         ubx_msg_payload = new uint8_t[ubx_msg_length];
-        cout << "msg_length = " << (6+ubx_msg_length+2);
+        cout << "msg_length = " << (ubx_msg_length);
         received_msg = new uint8_t[(6+ubx_msg_length+2)];
         received_msg[0] = UBX_SYNCH_1;
         received_msg[1] = UBX_SYNCH_2;
@@ -106,12 +106,17 @@ void parsing_statemaschine(uint8_t incoming)
         received_msg[4] = lengthLSB;
         received_msg[5] = incoming;
       }
+      else if(ubx_msg_length >= MSG_LENGTH_MAX)
+      {
+        cout << "over maximum msg length !!!" << endl;
+        parsing = false;
+      }
       else
       {
         cout << "error: msg_length = 0 " << endl;
-
         // abort
-        parsing = false;
+        // parsing = false;
+        // comment the abort statement if messages with length 0 should be parsed
         //ubx_msg_payload = new uint8_t[ubx_msg_length];
         received_msg = new uint8_t[(6+ubx_msg_length+2)];
         received_msg[0] = UBX_SYNCH_1;
@@ -126,7 +131,7 @@ void parsing_statemaschine(uint8_t incoming)
     {
       if(ubxFrameCounter < (6 + ubx_msg_length))
       {
-        ubx_msg_payload[ubxFrameCounter-6] = incoming;
+        ubx_msg_payload[(ubxFrameCounter-6)] = incoming;
         received_msg[ubxFrameCounter] = incoming;
       }
       else if(ubxFrameCounter == (6+ubx_msg_length))
@@ -138,14 +143,17 @@ void parsing_statemaschine(uint8_t incoming)
       {
         ubx_msg_ChecksumB = incoming;
         received_msg[ubxFrameCounter] = incoming;
-        if(ubx_msg_length>0)
+        cout << "TEST CONTENT OF ARRAY 2 !!!: " << hex << static_cast<unsigned int>(received_msg[2]) << endl;
+        if(ubx_msg_length>=0)
         {
           uint8_t* checksum = calculate_checksum();
           if((checksum[0] == ubx_msg_ChecksumA) && (checksum[1] == ubx_msg_ChecksumB))
           {
+            cout << "SET PACKET_VALID TRUE " << endl;
             packet_valid = true;
+            parsing = false;
           }
-          else
+        else
           {
             cout << "could NOT parse package correctly" << endl;
             cout << "checksum:    " << static_cast<unsigned int>(checksum[0]) << " " << static_cast<unsigned int>(checksum[1]) << endl;
@@ -155,6 +163,13 @@ void parsing_statemaschine(uint8_t incoming)
           }
 
         }
+      }
+      else if(ubxFrameCounter > (6+ubx_msg_length+1))
+      {
+        // something went realy wrong ... should not be possible !!
+        cout << "counter higher than possible" << endl;
+        packet_valid = false;
+        parsing = false;
       }
     }
   }
@@ -212,6 +227,7 @@ int main()
   cout <<"test this shit" << endl;
 
   parsing = false;
+  ubx_msg_length = 0;
 
   //uint8_t fake_message[] = {UBX_SYNCH_1, UBX_SYNCH_2, UBX_CLASS_NAV, UBX_NAV_POSLLH, 28, 0x00,
   //                      0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
@@ -233,17 +249,14 @@ int main()
       {
         cout << (unsigned int)(unsigned char)(read_buf[i]) ;
         cout << " ";
-        cout << packet_valid ;
-        cout << " ";
-        cout << parsing ;
-        cout << " ";
-        cout << ubx_msg_length;
-        cout << "    ";
         parsing_statemaschine((unsigned char)(read_buf[i]));
+
+        cout << ubxFrameCounter << endl;
 
         if(packet_valid)
         {
-          for(int j = 0; j< sizeof(received_msg); j++) // not okay ... why not sizeof() ??
+          cout << "received packet: " ;
+          for(int j = 0; j< sizeof(received_msg); j++) // sizeof() not working ??
           {
             cout << hex << static_cast<unsigned int>(received_msg[j]) ;
             cout << " " ;

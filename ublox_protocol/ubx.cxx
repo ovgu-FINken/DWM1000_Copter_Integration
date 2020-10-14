@@ -15,13 +15,19 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-
+#include <stdio.h>
 #include <stdint.h>
 #include <iostream>
 #include <string>
+#include <cstring>
 
 #include "ubx.h"
 using namespace std;
+
+#include <fcntl.h> // Contains file controls like O_RDWR
+#include <errno.h> // Error integer and strerror() function
+#include <termios.h> // Contains POSIX terminal control definitions
+#include <unistd.h> // write(), read(), close()
 
 
 uint8_t* calculate_checksum()
@@ -91,6 +97,7 @@ void parsing_statemaschine(uint8_t incoming)
       if(ubx_msg_length != 0)
       {
         ubx_msg_payload = new uint8_t[ubx_msg_length];
+        cout << "msg_length = " << (6+ubx_msg_length+2);
         received_msg = new uint8_t[(6+ubx_msg_length+2)];
         received_msg[0] = UBX_SYNCH_1;
         received_msg[1] = UBX_SYNCH_2;
@@ -102,6 +109,17 @@ void parsing_statemaschine(uint8_t incoming)
       else
       {
         cout << "error: msg_length = 0 " << endl;
+
+        // abort
+        parsing = false;
+        //ubx_msg_payload = new uint8_t[ubx_msg_length];
+        received_msg = new uint8_t[(6+ubx_msg_length+2)];
+        received_msg[0] = UBX_SYNCH_1;
+        received_msg[1] = UBX_SYNCH_2;
+        received_msg[2] = ubx_msg_class;
+        received_msg[3] = ubx_msg_id;
+        received_msg[4] = lengthLSB;
+        received_msg[5] = incoming;
       }
     }
     else if(ubxFrameCounter >= 6)
@@ -151,6 +169,43 @@ void parsing_statemaschine(uint8_t incoming)
 
 int main()
 {
+
+  int serial_port = open("/dev/ttyUSB0", O_RDWR);
+  if (serial_port < 0) {
+    printf("Error %i from open: %s\n", errno, strerror(errno));
+  }
+
+  struct termios tty;
+  if(tcgetattr(serial_port, &tty) != 0) {
+    printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
+  }
+
+  tty.c_cflag &= ~PARENB;
+  tty.c_cflag &= ~CSTOPB;
+
+  tty.c_cflag &= ~CSIZE;
+  tty.c_cflag |= CS8;
+
+  tty.c_cflag &= ~CRTSCTS;
+
+  tty.c_cflag |= CREAD | CLOCAL;
+
+  tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
+
+  tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
+  tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
+
+  tty.c_cc[VTIME] = 2;
+  tty.c_cc[VMIN] = 0;
+
+  cfsetispeed(&tty, B9600);
+  cfsetospeed(&tty, B9600);
+
+  if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
+    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+  }
+
+
   uint8_t test = 0xff ;
   int testint = static_cast<unsigned int>(test);
   cout << hex << testint << endl;
@@ -158,35 +213,57 @@ int main()
 
   parsing = false;
 
-  uint8_t fake_message[] = {UBX_SYNCH_1, UBX_SYNCH_2, UBX_CLASS_NAV, UBX_NAV_POSLLH, 28, 0x00,
-                        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
-                        0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x00, 0x00 };
-  uint8_t* checksum = calculate_checksum(fake_message);
-  fake_message[34] =  checksum[0];
-  fake_message[35] =  checksum[1];
+  //uint8_t fake_message[] = {UBX_SYNCH_1, UBX_SYNCH_2, UBX_CLASS_NAV, UBX_NAV_POSLLH, 28, 0x00,
+  //                      0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+  //                      0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x00, 0x00 };
+  //uint8_t* checksum = calculate_checksum(fake_message);
+  //fake_message[34] =  checksum[0];
+  //fake_message[35] =  checksum[1];
 
-  for(int i = 0; i< sizeof(fake_message); i++)
-  {
-    cout << hex << static_cast<unsigned int>(fake_message[i]);
-    cout << " " ;
-  }
-  cout << endl;
+  char read_buf[256];
 
-  for(int i = 0; i< sizeof(fake_message); i++)
+  while(true)
   {
-    parsing_statemaschine(fake_message[i]);
-    if(packet_valid)
+    int n = read(serial_port, &read_buf, sizeof(read_buf));
+    if(n>0)
     {
-      cout << "PARTEYYYYY" << endl;
+      cout << "numer of bytes read: " ;
+      cout << n << endl;
+      for(int i = 0; i<n; i++)
+      {
+        cout << (unsigned int)(unsigned char)(read_buf[i]) ;
+        cout << " ";
+        cout << packet_valid ;
+        cout << " ";
+        cout << parsing ;
+        cout << " ";
+        cout << ubx_msg_length;
+        cout << "    ";
+        parsing_statemaschine((unsigned char)(read_buf[i]));
+
+        if(packet_valid)
+        {
+          for(int j = 0; j< sizeof(received_msg); j++) // not okay ... why not sizeof() ??
+          {
+            cout << hex << static_cast<unsigned int>(received_msg[j]) ;
+            cout << " " ;
+          }
+          cout << endl;
+        }
+      }
+      cout << endl;
     }
   }
 
-  for(int j = 0; j< 36; j++) // not okay ... why not sizeof() ??
+  if(packet_valid)
   {
-    cout << hex << static_cast<unsigned int>(received_msg[j]) ;
-    cout << " " ;
+    for(int j = 0; j< 36; j++) // not okay ... why not sizeof() ??
+    {
+      cout << hex << static_cast<unsigned int>(received_msg[j]) ;
+      cout << " " ;
+    }
+    cout << endl;
   }
-  cout << endl;
 
   return 0;
 }

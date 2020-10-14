@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/ubx.dir/ubx.cxx.o"
-  "ubx"
   "ubx.pdb"
+  "ubx"
 )
 
 # Per-language clean rules from dependency scanning.

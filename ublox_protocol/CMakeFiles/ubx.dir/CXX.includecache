@@ -6,15 +6,27 @@
 
 #IncludeRegexTransform: 
 
-/home/jonathan/ubx/ubx.cxx
+/home/ba/DWM1000_Copter_Integration/ublox_protocol/ubx.cxx
+stdio.h
+-
 stdint.h
 -
 iostream
 -
 string
 -
+cstring
+-
 ubx.h
-/home/jonathan/ubx/ubx.h
+/home/ba/DWM1000_Copter_Integration/ublox_protocol/ubx.h
+fcntl.h
+-
+errno.h
+-
+termios.h
+-
+unistd.h
+-
 
-/home/jonathan/ubx/ubx.h
+/home/ba/DWM1000_Copter_Integration/ublox_protocol/ubx.h
 

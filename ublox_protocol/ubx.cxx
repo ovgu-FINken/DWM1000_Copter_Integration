@@ -20,6 +20,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <fstream>
+#include <ctime>
 
 #include "ubx.h"
 using namespace std;
@@ -40,10 +42,10 @@ uint8_t* calculate_checksum()
   }
   return checksum;
 }
-uint8_t* calculate_checksum(uint8_t* input)
+uint8_t* calculate_checksum(uint8_t* input, int size)
 {
   uint8_t* checksum = new uint8_t[2];
-  for(int i = 2; i<(sizeof(input)-2); i++) // does size of work ?
+  for(int i = 2; i<(size-2); i++)
   {
     checksum[0] = checksum[0] + input[i];
     checksum[1] = checksum[1] + checksum[0];
@@ -143,7 +145,8 @@ void parsing_statemaschine(uint8_t incoming)
       {
         ubx_msg_ChecksumB = incoming;
         received_msg[ubxFrameCounter] = incoming;
-        cout << "TEST CONTENT OF ARRAY 2 !!!: " << hex << static_cast<unsigned int>(received_msg[2]) << endl;
+        cout << "msg_length before = " << (ubx_msg_length) << endl;
+        //cout << "TEST CONTENT OF ARRAY 2 !!!: " << hex << static_cast<unsigned int>(received_msg[2]) << endl;
         if(ubx_msg_length>=0)
         {
           uint8_t* checksum = calculate_checksum();
@@ -161,7 +164,7 @@ void parsing_statemaschine(uint8_t incoming)
             packet_valid = false;
             parsing = false;
           }
-
+        cout << "msg_length after= " << (ubx_msg_length) << endl;
         }
       }
       else if(ubxFrameCounter > (6+ubx_msg_length+1))
@@ -178,7 +181,41 @@ void parsing_statemaschine(uint8_t incoming)
   return;
 }
 
+uint8_t* iTOW; // time of the last position update (all messages with this
+// timestamp belong "together", updated when new position is sucsessfully calculated ??)
 
+uint32_t get_gps_time_of_week()
+{
+  uint32_t gps_time_of_week = 0;
+  time_t now = time(0);
+  uint32_t t_base = 0 ; // time of sun 00:00 as seconds of week
+  gps_time_of_week += t_base;
+  gps_time_of_week += localtime(&now)->tm_sec ;
+  gps_time_of_week += localtime(&now)->tm_min * 60;
+  gps_time_of_week += localtime(&now)->tm_hour * 60 * 60;
+
+  //uint8_t return_arr[4];
+  //uint8_t* pointerToArray = return_arr;
+  //memcpy(return_arr, (char *) &(gps_time_of_week), 4); // dirty, i know
+
+  //cout << "return_arr: " << hex << static_cast<unsigned int>(return_arr[0]);
+  //cout << hex << static_cast<unsigned int>(return_arr[1]);
+  //cout << hex << static_cast<unsigned int>(return_arr[2]);
+  //cout << hex << static_cast<unsigned int>(return_arr[3]);
+  return gps_time_of_week;
+}
+
+void update_iTOW()
+{
+  iTOW = new uint8_t[4];
+  //iTOW = get_gps_time_of_week();
+}
+
+void send_NAV_POSLLH(int serial_port)
+{
+
+  return;
+}
 
 
 
@@ -238,6 +275,9 @@ int main()
 
   char read_buf[256];
 
+  // log things to file
+  ofstream myfile;
+  myfile.open ("log.txt");
   while(true)
   {
     int n = read(serial_port, &read_buf, sizeof(read_buf));
@@ -255,28 +295,35 @@ int main()
 
         if(packet_valid)
         {
+          //myfile << "Writing this to a file.\n";
           cout << "received packet: " ;
-          for(int j = 0; j< sizeof(received_msg); j++) // sizeof() not working ??
+          for(int j = 0; j< (6+ubx_msg_length+2); j++) // sizeof() not working ??
           {
             cout << hex << static_cast<unsigned int>(received_msg[j]) ;
+            myfile << hex << static_cast<unsigned int>(received_msg[j]) ;
             cout << " " ;
+            myfile << " ";
           }
           cout << endl;
+          myfile << endl;
+
+          if(received_msg[2] == UBX_CLASS_CFG) // config messages "must" be acknowled or declined
+          {
+            uint8_t ack_msg[] = {UBX_SYNCH_1, UBX_SYNCH_2, UBX_CLASS_ACK, 0x01, 0x02, 0x00, received_msg[2], received_msg[3], 0x00, 0x00};
+            uint8_t* checksum_ack = calculate_checksum(ack_msg, sizeof(ack_msg));
+            ack_msg[8] = checksum_ack[0];
+            ack_msg[9] = checksum_ack[1];
+            write(serial_port, ack_msg, sizeof(ack_msg));
+          }
+          packet_valid = false;
         }
       }
       cout << endl;
     }
-  }
-
-  if(packet_valid)
-  {
-    for(int j = 0; j< 36; j++) // not okay ... why not sizeof() ??
+    else
     {
-      cout << hex << static_cast<unsigned int>(received_msg[j]) ;
-      cout << " " ;
+      //cout << "GPS TIME OF WEEK: " << get_gps_time_of_week() << endl;
     }
-    cout << endl;
   }
-
   return 0;
 }

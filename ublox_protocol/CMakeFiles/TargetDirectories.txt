@@ -1,3 +1,0 @@
-/home/ba/DWM1000_Copter_Integration/ublox_protocol/CMakeFiles/rebuild_cache.dir
-/home/ba/DWM1000_Copter_Integration/ublox_protocol/CMakeFiles/ubx.dir
-/home/ba/DWM1000_Copter_Integration/ublox_protocol/CMakeFiles/edit_cache.dir

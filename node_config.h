@@ -18,6 +18,11 @@ extern uint8_t node_address;
 #define MLAT_ACTIVE 1
 #endif
 
+// defines how often NMEA messages were sent (times/s)
+#ifndef NMEA_UPDATE
+#define NMEA_UPDATE 2
+#endif
+
 // After this inervall the next automatic ranging is started
 #define RANGE_INTERVALL_US 20
 

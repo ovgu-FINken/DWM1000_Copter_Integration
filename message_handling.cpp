@@ -58,6 +58,14 @@ void receive_position() {
     uart2.printf("%i: %.2f, %.2f, %.2f\r\n", rxFrame.src, x, y, z);
 }
 
+void send_nmea(){
+  float x = (float) mlat.position[0];
+  float y = (float) mlat.position[1];
+  float z = (float) mlat.position[2];
+  string nmea_msg = build_nmea_msg(x,y,z);
+  uart2.printf("%s",nmea_msg.c_str());
+}
+
 void txcallback(dwDevice_t *dev){
     sending = false;
     switch(txFrame.type) {

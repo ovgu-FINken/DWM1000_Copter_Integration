@@ -1,20 +1,27 @@
+
+#ifndef NMEA_GPS_H
+#define NMEA_GPS_H
+
 #pragma once
-#include <string>
 #include "node_config.h"
 #include <iomanip>
 #include <sstream>
+#include <string>
 
 
+extern std::string start;
+extern std::string end_ ;
+extern std::string rmc ;
+extern int time_h ;// hh,mm,ss.ss
+extern int time_m ;
+extern int time_s ;
+extern int time_ms ;
+extern float base_latt;
+extern float base_long;
 
-string start = "$" ;
-string end = "*" ;
-string rmc = "GPRMC" ;
-int time_h = 0;// hh,mm,ss.ss
-int time_m = 0;
-int time_s = 0;
-int time_ms = 0;
-float base_latt = 5208.2663;
-float base_long = 01138.7620;
+extern float magic_number;
 
-float magic_number = 0.00000899928; 
+std::string build_nmea_msg(float x, float y, float z);
 // this number is magic and converts change in distance from m to deg (aprox)
+
+#endif

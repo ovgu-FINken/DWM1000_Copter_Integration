@@ -6,6 +6,7 @@
 #include "serial_logic.h"
 #include "dwm_logic.h"
 #include "thread_logic.h"
+//#include "nmea_gps.h"
 #include "message_handling.h"
 #include "leds.h"
 #include "pprz.h"
@@ -26,7 +27,7 @@ void startRanging() {
         case 1:
             mlat_range_target = MLAT_BASE_ADDR;
             break;
-        case MLAT_BASE_ADDR + 8:  // max 8 Anchor-nodes 
+        case MLAT_BASE_ADDR + 8:  // max 8 Anchor-nodes
             mlat_range_target = 1;
             break;
         default:
@@ -50,6 +51,7 @@ int main() {
 #if (ADDR != 1) && (ADDR < MLAT_BASE_ADDR)
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
     IRQqueue.call_every(1000, send_position);
+    IRQqueue.call_every((int)(1000/NMEA_UPDATE), send_nmea);
 #endif
     while (true){
         greenLed = 1;

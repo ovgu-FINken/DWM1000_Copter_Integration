@@ -92,10 +92,10 @@ string make_latt_string(float x)
 {
   // type conversion from nmea gps format to normal gps format, then addition, then back
   float base_latt_format2 = (int)base_latt/100;
-  float z = base_latt - base_latt_format2 ;
+  float z = base_latt - base_latt_format2*100 ;
   base_latt_format2 = base_latt_format2 + (z/60);
 
-  float latt_format2 = base_latt + magic_number * x ;
+  float latt_format2 = base_latt_format2 + magic_number * x ;
 
   z = (int)latt_format2/100 ;
   float latt = (latt_format2 -z) * 60 + z ;
@@ -112,10 +112,10 @@ string make_long_string(float y)
 {
   // type conversion from nmea gps format to normal gps format, then addition, then back
   float base_long_format2 = (int)base_long/100;
-  float z = base_long - base_long_format2 ;
+  float z = base_long - base_long_format2*100 ;
   base_long_format2 = base_long_format2 + (z/60);
 
-  float long_format2 = base_long + magic_number * y ;
+  float long_format2 = base_long_format2 + magic_number * y ;
 
   z = (int)long_format2/100 ;
   float long_ = (long_format2 -z) * 60 + z ;

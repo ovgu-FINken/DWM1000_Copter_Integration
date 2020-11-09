@@ -26,7 +26,11 @@ int checksum(const char *s) {
 void update_time()
 {
   time_ms = time_ms + (int) (1000/NMEA_UPDATE);
-  time_s = (int) (time_ms/1000);
+  if(time_ms>=1000)
+  {
+    time_ms = 0;
+    time_s ++;
+  }
   if(time_s >= 60)
   {
     time_s = 0;
@@ -161,13 +165,13 @@ string build_nmea_msg(float x, float y, float z)
   msg = msg + end_ ;
   // checksum
   int checksum_ = checksum(msg.c_str());
-  
+
   std::string s(16, '\0');
   auto written = std::snprintf(&s[0], s.size(), "%02X", checksum_);
   s.resize(written);
   msg = msg + s;
   // terminate message should be: <cr><lf>
-  msg = msg + "\n";
+  msg = msg + "\r\n";
 
   return msg;
 }

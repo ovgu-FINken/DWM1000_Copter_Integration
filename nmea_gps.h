@@ -12,6 +12,7 @@
 extern std::string start;
 extern std::string end_ ;
 extern std::string rmc ;
+extern std::string gga;
 extern int time_h ;// hh,mm,ss.ss
 extern int time_m ;
 extern int time_s ;

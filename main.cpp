@@ -45,13 +45,15 @@ int main() {
     initialiseDWM();
     attach_message_handlers();
     startDWM();
-    uart2.printf("Start Ranging\n");
+    //uart2.printf("Start Ranging\n");
 
     uint8_t WriteBuffer[256+4];
 #if (ADDR != 1) && (ADDR < MLAT_BASE_ADDR)
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
-    IRQqueue.call_every(1000, send_position);
+    //IRQqueue.call_every(1000, send_position);
+#if MLAT_ACTIVE
     IRQqueue.call_every((int)(1000/NMEA_UPDATE), send_nmea);
+#endif
 #endif
     while (true){
         greenLed = 1;
@@ -59,6 +61,7 @@ int main() {
 #if ADDR < MLAT_BASE_ADDR
         mlat.iterative_step();
         Thread::yield();
+
 #endif
 #endif
 

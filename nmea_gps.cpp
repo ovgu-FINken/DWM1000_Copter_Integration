@@ -4,6 +4,7 @@ using namespace std;
 string start = "$" ;
 string end_ = "*" ;
 string rmc = "GPRMC" ;
+string gga = "GPGGA" ;
 int time_h = 0;// hh,mm,ss.ss
 int time_m = 0;
 int time_s = 0;
@@ -85,6 +86,19 @@ string make_time_string()
   else{
     timeString = timeString + "00";
   }
+
+  if(time_ms >= 100){
+  timeString = timeString + "." + to_string(time_ms);
+  }
+  else if(time_ms >=10){
+    timeString = timeString + ".0" + to_string(time_ms);
+  }
+  else if(time_ms >= 1){
+    timeString = timeString + ".00" + to_string(time_ms);
+  }
+  else{
+    timeString = timeString + ".000"  ;
+  }
   return timeString;
 }
 
@@ -97,8 +111,8 @@ string make_latt_string(float x)
 
   float latt_format2 = base_latt_format2 + magic_number * x ;
 
-  z = (int)latt_format2/100 ;
-  float latt = (latt_format2 -z) * 60 + z ;
+  z = (int)latt_format2 ;
+  float latt = (latt_format2 -z) * 60 + (z*100) ;
 
   // some magic magic
 
@@ -117,21 +131,22 @@ string make_long_string(float y)
 
   float long_format2 = base_long_format2 + magic_number * y ;
 
-  z = (int)long_format2/100 ;
-  float long_ = (long_format2 -z) * 60 + z ;
+  z = (int)long_format2 ;
+  float long_ = (long_format2 -z) * 60 + z*100 ;
   // some magic magic
 
   std::string s(16, '\0');
   auto written = std::snprintf(&s[0], s.size(), "%.4f", long_);
   s.resize(written);
 
-  return s;
+  // special for long, leading 0
+  string g = "0" + s;
+
+  return g;
 }
 
-string build_nmea_msg(float x, float y, float z)
-{
-  // TODO: height info not used yet, different msg ?!?
-  update_time();
+string build_nmea_RMC(float x, float y, float z){
+
   string msg = "";
   msg = msg + start + rmc; // start byte, type of message
   msg = msg + ",";
@@ -162,6 +177,7 @@ string build_nmea_msg(float x, float y, float z)
   // no magnetic variation
   msg = msg + ",";
   msg = msg + ",";
+  msg = msg + "A" ;// not sure why, but in original msgs there always is a "A" bevor the checksum
   msg = msg + end_ ;
   // checksum
   int checksum_ = checksum(msg.c_str());
@@ -173,5 +189,72 @@ string build_nmea_msg(float x, float y, float z)
   // terminate message should be: <cr><lf>
   msg = msg + "\r\n";
 
+  return msg;
+}
+string build_nmea_GGA(float x, float y, float z){
+  string msg = "";
+  msg = msg + start + gga; // start byte, type of message
+  msg = msg + ",";
+  // adding time_stamp
+  string timeString = make_time_string();
+  msg = msg + timeString;
+  msg = msg + ",";
+  // lattitude
+  msg = msg + make_latt_string(x);
+  msg = msg + ",";
+  msg = msg + "N";
+  msg = msg + ",";
+  // longitude
+  msg = msg + make_long_string(y);
+  msg = msg + ",";
+  msg = msg + "E";
+  msg = msg + ",";
+  // 0 --> no fix 1 --> GPS fix --> 2 DGPS fix
+  msg = msg + "1";
+  msg = msg + ",";
+  // number of "sattelites" in view (current setup has 8 modules --> so 8 ??)
+  msg = msg + "08";
+  msg = msg + ",";
+  // Horizontal Dilution of Precision (HDOP) (1 is best, 6 is okay, 10 is to bad to be used)
+  msg = msg + "1.50";
+  msg = msg + ",";
+  // height in meters above mean see level (in our case only height)
+  std::string l(16, '\0');
+  auto stuff = std::snprintf(&l[0], l.size(), "%.1f", abs(z));
+  l.resize(stuff);
+  msg = msg + l;
+  msg = msg + ",";
+  msg = msg + "M";
+  msg = msg + ",";
+  // Height of geoid above WGS84 ellipsoid --> absolutly no idea .. so just use some recorded values of the gps module
+  msg = msg + "46.6" ;
+  msg = msg + "," ;
+  msg = msg + "M" ;
+  msg = msg + "," ;
+  //Time since last DGPS update --> none
+  msg = msg + "," ;
+  // DGPS reference station id --> none
+  // terminate sign
+  msg = msg + end_ ;
+  // checksum
+  int checksum_ = checksum(msg.c_str());
+
+  std::string s(16, '\0');
+  auto written = std::snprintf(&s[0], s.size(), "%02X", checksum_);
+  s.resize(written);
+  msg = msg + s;
+  // terminate message should be: <cr><lf>
+  msg = msg + "\r\n";
+
+  return msg;
+}
+
+string build_nmea_msg(float x, float y, float z)
+{
+  // TODO: height info not used yet, different msg ?!?
+  update_time();
+  string msg = "";
+  msg = msg + build_nmea_RMC(x,y,z);
+  msg = msg + build_nmea_GGA(x,y,z);
   return msg;
 }

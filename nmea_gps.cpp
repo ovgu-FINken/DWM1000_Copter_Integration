@@ -9,10 +9,10 @@ int time_h = 0;// hh,mm,ss.ss
 int time_m = 0;
 int time_s = 0;
 int time_ms = 0;
-float base_latt = 5208.2663;
-float base_long = 01138.7620;
+double base_latt = 5208.2663;
+double base_long = 01138.7620;
 
-float magic_number = 0.00000899928;
+double magic_number = 0.00000899928;
 
 
 int checksum(const char *s) {
@@ -105,14 +105,14 @@ string make_time_string()
 string make_latt_string(float x)
 {
   // type conversion from nmea gps format to normal gps format, then addition, then back
-  float base_latt_format2 = (int)base_latt/100;
-  float z = base_latt - base_latt_format2*100 ;
+  double base_latt_format2 = (int)base_latt/100;
+  double z = base_latt - base_latt_format2*100 ;
   base_latt_format2 = base_latt_format2 + (z/60);
 
-  float latt_format2 = base_latt_format2 + magic_number * x ;
+  double latt_format2 = base_latt_format2 + magic_number * x ;
 
   z = (int)latt_format2 ;
-  float latt = (latt_format2 -z) * 60 + (z*100) ;
+  double latt = (latt_format2 -z) * 60 + (z*100) ;
 
   // some magic magic
 
@@ -125,14 +125,14 @@ string make_latt_string(float x)
 string make_long_string(float y)
 {
   // type conversion from nmea gps format to normal gps format, then addition, then back
-  float base_long_format2 = (int)base_long/100;
-  float z = base_long - base_long_format2*100 ;
+  double base_long_format2 = (int)base_long/100;
+  double z = base_long - base_long_format2*100 ;
   base_long_format2 = base_long_format2 + (z/60);
 
-  float long_format2 = base_long_format2 + magic_number * y ;
+  double long_format2 = base_long_format2 + magic_number * y ;
 
   z = (int)long_format2 ;
-  float long_ = (long_format2 -z) * 60 + z*100 ;
+  double long_ = (long_format2 -z) * 60 + z*100 ;
   // some magic magic
 
   std::string s(16, '\0');

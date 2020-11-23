@@ -30,7 +30,7 @@ template<const uint8_t NUM_ANCHORS> class MLat {
         double iterative_step() {
             this->computeG();
             this->computeM0();
-            position = G.completeOrthogonalDecomposition().solve(m - m0) + position;
+            position = G.completeOrthogonalDecomposition().solve(m - m0) * SOLVER_STEP_SIZE + position;
 
             this->computeM0();
             return this->residual();
@@ -49,5 +49,5 @@ template<const uint8_t NUM_ANCHORS> class MLat {
 
         }
 };
-extern MLat<8> mlat; // multilateration object
+extern MLat<NUMBER_ANCHORS> mlat; // multilateration object
 void initialiseMlat();

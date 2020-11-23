@@ -1,14 +1,14 @@
 #include "mlat.h"
-MLat<8> mlat; // multilateration object
+MLat<NUMBER_ANCHORS> mlat; // multilateration object
 void initialiseMlat() {
-    mlat.anchors << .0  , .0   ,  .0,
-                    .0  , 10.0 ,  .0,
-                    10.0, 10.0 ,  .0,
-                    10.0, .0   ,  .0,
-                    5.0 , 2.5  ,  .0,
-                    2.5 , 5.0  ,  .0,
-                    5.0 , 7.5  ,  .0,
-                    7.5 , 5.0  ,  .0;                    ;
+    mlat.anchors << .0, .0,        .0,
+                    .0, -17.2 ,     .0,
+                    12.70 , -17.2  , .0,
+                    12.70, .0  ,    .0,
+                    27.7 , .0   ,  .0,
+                    27.7 , -17.2  , .0,
+                    27.7, 7.3  ,  0,
+                    12.7, 7.3   ,  0;
     mlat.position << .5,.5,.5;
-    mlat.m << 0, 1, 1, 1, 1.41, 1, 1, 1;
+    mlat.m << 1, 1, 1, 1, 1, 1, 1, 1;
 }

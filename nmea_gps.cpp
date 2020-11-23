@@ -209,7 +209,7 @@ string build_nmea_GGA(float x, float y, float z){
   msg = msg + ",";
   msg = msg + "E";
   msg = msg + ",";
-  // 0 --> no fix 1 --> GPS fix --> 2 DGPS fix
+  // 0 --> no fix 1 --> GPS fix --> 2 DGPS fix (however, paparazzi does not recognize this "fix")
   msg = msg + "1";
   msg = msg + ",";
   // number of "sattelites" in view (current setup has 8 modules --> so 8 ??)
@@ -220,14 +220,15 @@ string build_nmea_GGA(float x, float y, float z){
   msg = msg + ",";
   // height in meters above mean see level (in our case only height)
   std::string l(16, '\0');
-  auto stuff = std::snprintf(&l[0], l.size(), "%.1f", abs(z));
+  auto stuff = std::snprintf(&l[0], l.size(), "%.1f", abs(z)); // negative heigts are not valid
   l.resize(stuff);
   msg = msg + l;
   msg = msg + ",";
   msg = msg + "M";
   msg = msg + ",";
-  // Height of geoid above WGS84 ellipsoid --> absolutly no idea .. so just use some recorded values of the gps module
-  msg = msg + "46.6" ;
+  // Height of geoid above WGS84 ellipsoid --> we also throw in the height here (just to make sure or something ?)
+  // from the recordings of the gps, this should be a static value of ca. 46.6,M ... paparazzi disagrees
+  msg = msg + l;
   msg = msg + "," ;
   msg = msg + "M" ;
   msg = msg + "," ;
@@ -249,6 +250,11 @@ string build_nmea_GGA(float x, float y, float z){
   return msg;
 }
 
+string build_nmea_GSA(){
+  // convince the gps module once more that is has a fix (of 8 sattelites which are numbered "random")
+  return "$GPGSA,A,3,19,28,14,18,27,22,31,39,,,,,1.7,1.0,1.3*35\r\n";
+}
+
 string build_nmea_msg(float x, float y, float z)
 {
   // TODO: height info not used yet, different msg ?!?
@@ -256,5 +262,6 @@ string build_nmea_msg(float x, float y, float z)
   string msg = "";
   msg = msg + build_nmea_RMC(x,y,z);
   msg = msg + build_nmea_GGA(x,y,z);
+  msg = msg + build_nmea_GSA();
   return msg;
 }

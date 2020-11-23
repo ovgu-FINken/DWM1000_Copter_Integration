@@ -18,9 +18,14 @@ extern uint8_t node_address;
 #define MLAT_ACTIVE 1
 #endif
 
+#define NUMBER_ANCHORS 8
+// sets the influence the calculated gradient has on the position update
+// btw. we are in despreate need of some kind of filter !!
+#define SOLVER_STEP_SIZE 0.5
+
 // defines how often NMEA messages were sent (times/s)
 #ifndef NMEA_UPDATE
-#define NMEA_UPDATE 2
+#define NMEA_UPDATE 10
 #endif
 
 // After this inervall the next automatic ranging is started
@@ -46,7 +51,7 @@ extern uint8_t node_address;
 #define TELEMETRY_BAUD 38400
 
 // Baudrate of debug UART --> now gps uart
-#define DEBUG_BAUD 9600
+#define DEBUG_BAUD 115200
 
 // Disable/Enable UART-Echo (puts characters to output in UART-isr, only in telemetry UART)
 #define ECHO 0

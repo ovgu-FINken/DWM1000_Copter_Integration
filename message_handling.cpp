@@ -44,7 +44,12 @@ void send_position() {
 	memcpy(txFrame.data+sizeof(x), &y, sizeof(y));
 	memcpy(txFrame.data+sizeof(x)+sizeof(y), &z, sizeof(z));
     sendDWM((uint8_t *)&txFrame, NO_DATA_FRAME_SIZE + sizeof(x)+sizeof(y)+sizeof(z));
-    uart2.printf("%i, %.2f, %.2f, %2f\r\n", node_address, x, y, z);
+    uart2.printf("%i, %.2f, %.2f, %2f", node_address, x, y, z);
+    for(int i = 0; i< 8; i++){
+      double range = mlat.m[i];
+      uart2.printf("\t,%.3f", range);
+    }
+    uart2.printf("\r\n");
     greenLed = 1;
 }
 
@@ -55,7 +60,7 @@ void receive_position() {
 	memcpy(&x, rxFrame.data, sizeof(x));
 	memcpy(&y, rxFrame.data+sizeof(x), sizeof(y));
 	memcpy(&z, rxFrame.data+sizeof(x)+sizeof(y), sizeof(z));
-    uart2.printf("%i: %.2f, %.2f, %.2f\r\n", rxFrame.src, x, y, z);
+    //uart2.printf("%i: %.2f, %.2f, %.2f\r\n", rxFrame.src, x, y, z);
 }
 
 void send_nmea(){

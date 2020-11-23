@@ -21,7 +21,9 @@ extern uint8_t node_address;
 #define NUMBER_ANCHORS 8
 // sets the influence the calculated gradient has on the position update
 // btw. we are in despreate need of some kind of filter !!
-#define SOLVER_STEP_SIZE 0.5
+#define SOLVER_STEP_SIZE 0.1
+// 2d instead of 3d localisation
+#define TWODLOCALIZATION 1
 
 // defines how often NMEA messages were sent (times/s)
 #ifndef NMEA_UPDATE

@@ -31,7 +31,9 @@ template<const uint8_t NUM_ANCHORS> class MLat {
             this->computeG();
             this->computeM0();
             position = G.completeOrthogonalDecomposition().solve(m - m0) * SOLVER_STEP_SIZE + position;
-
+            #ifdef TWODLOCALIZATION
+            position[2] = 0;
+            #endif
             this->computeM0();
             return this->residual();
 

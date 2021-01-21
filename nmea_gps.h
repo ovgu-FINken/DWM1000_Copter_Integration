@@ -2,12 +2,16 @@
 #ifndef NMEA_GPS_H
 #define NMEA_GPS_H
 
+#define ANGLE -7.0
+#define PI 3.14159265
+
 #pragma once
 #include "node_config.h"
 #include <iomanip>
 #include <sstream>
 #include <string>
-
+#include <tuple>
+#include <math.h>
 
 extern std::string start;
 extern std::string end_ ;

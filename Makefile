@@ -3,7 +3,7 @@ ADDR ?= 2
 
 
 compile:
-	mbed compile --clean --profile debug -DADDR=$(ADDR)
+	mbed compile --profile debug -DADDR=$(ADDR)
 
 flash: compile
 	@printf "  BMP $(BMP_PORT) BUILD/DWM1000_STM32L443CC/GCC_ARM-DEBUG/DWM1000_Copter_Integration.elf (flash)\n"

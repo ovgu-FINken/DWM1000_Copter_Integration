@@ -9,10 +9,15 @@ int time_h = 0;// hh,mm,ss.ss
 int time_m = 0;
 int time_s = 0;
 int time_ms = 0;
-double base_latt = 5208.2663;
-double base_long = 01138.7620;
+//double base_latt = 5208.2663; // 5208.261 -->  +0.0053  || 52.13777166  52.13768333
+//double base_long = 01138.7620;// 01138.725 --> +0.037   || 11.64603333  11.64541666
 
-double magic_number = 0.00000899928;
+double base_latt = 52.13784504;
+double base_long = 11.64542064;
+
+double magic_number_latt = 0.00000899928;
+double magic_number_long = 0.00001465251;
+
 
 
 int checksum(const char *s) {
@@ -104,15 +109,11 @@ string make_time_string()
 
 string make_latt_string(float x)
 {
-  // type conversion from nmea gps format to normal gps format, then addition, then back
-  double base_latt_format2 = (int)base_latt/100;
-  double z = base_latt - base_latt_format2*100 ;
-  base_latt_format2 = base_latt_format2 + (z/60);
+  // add distance in "normal" gps format and then convert to NMEA gps format
+  double latt1 = base_latt + magic_number_latt * x ;
 
-  double latt_format2 = base_latt_format2 + magic_number * x ;
-
-  z = (int)latt_format2 ;
-  double latt = (latt_format2 -z) * 60 + (z*100) ;
+  double z = (int)latt1 ;
+  double latt = (latt1 -z) * 60 + (z*100) ;
 
   // some magic magic
 
@@ -124,15 +125,12 @@ string make_latt_string(float x)
 }
 string make_long_string(float y)
 {
-  // type conversion from nmea gps format to normal gps format, then addition, then back
-  double base_long_format2 = (int)base_long/100;
-  double z = base_long - base_long_format2*100 ;
-  base_long_format2 = base_long_format2 + (z/60);
+  // add distance in "normal" gps format and then convert to NMEA gps format
+  double long1 = base_long + magic_number_long * y ;
 
-  double long_format2 = base_long_format2 + magic_number * y ;
+  double z = (int)long1 ;
+  double long_ = (long1 -z) * 60 + (z*100) ;
 
-  z = (int)long_format2 ;
-  double long_ = (long_format2 -z) * 60 + z*100 ;
   // some magic magic
 
   std::string s(16, '\0');
@@ -145,8 +143,25 @@ string make_long_string(float y)
   return g;
 }
 
-string build_nmea_RMC(float x, float y, float z){
 
+tuple<float, float> rotate_point(float cx, float cy, float angle, float px, float py){
+    double s = sin(angle*PI/180);
+    double c = cos(angle*PI/180);
+
+    px -= cx;
+    py -= cy;
+
+    double xnew = px * c - py * s;
+    double ynew = px * s + py * c;
+
+    px = xnew + cx;
+    py = ynew + cy;
+
+    tuple<float,float> returnValue (px, py);
+    return returnValue;
+}
+
+string build_nmea_RMC(float x, float y, float z){
   string msg = "";
   msg = msg + start + rmc; // start byte, type of message
   msg = msg + ",";
@@ -257,6 +272,9 @@ string build_nmea_GSA(){
 
 string build_nmea_msg(float x, float y, float z)
 {
+  tuple<float, float> rotated_xy = rotate_point(0,0,ANGLE,x,y);
+  x = get<0>(rotated_xy);
+  y = get<1>(rotated_xy);
   // TODO: height info not used yet, different msg ?!?
   update_time();
   string msg = "";

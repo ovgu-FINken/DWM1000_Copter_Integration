@@ -2,7 +2,11 @@
 #ifndef NMEA_GPS_H
 #define NMEA_GPS_H
 
-#define ANGLE 7.98
+#define ANGLE 0.214730608 // in radians
+#define T_X 0
+#define T_Y 0
+#define S_X 1.44306186
+#define S_Y 1.28812618
 #define PI 3.14159265
 
 #pragma once

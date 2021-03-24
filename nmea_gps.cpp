@@ -12,8 +12,8 @@ int time_ms = 0;
 //double base_latt = 5208.2663; // 5208.261 -->  +0.0053  || 52.13777166  52.13768333
 //double base_long = 01138.7620;// 01138.725 --> +0.037   || 11.64603333  11.64541666
 
-double base_latt = 52.13784504;
-double base_long = 11.64542064;
+double base_latt = 52.1378433 //52.13784504; //52.13777  52,1378433 11,6454139
+double base_long = 11.6454139 //11.64542064; //11.64547  11,6454139
 
 double magic_number_latt = 0.00000899928;
 double magic_number_long = 0.00001465251;
@@ -107,10 +107,10 @@ string make_time_string()
   return timeString;
 }
 
-string make_latt_string(float x)
+string make_latt_string(float y)
 {
   // add distance in "normal" gps format and then convert to NMEA gps format
-  double latt1 = base_latt + magic_number_latt * x ;
+  double latt1 = base_latt + magic_number_latt * y ;
 
   double z = (int)latt1 ;
   double latt = (latt1 -z) * 60 + (z*100) ;
@@ -123,10 +123,10 @@ string make_latt_string(float x)
 
   return s;
 }
-string make_long_string(float y)
+string make_long_string(float x)
 {
   // add distance in "normal" gps format and then convert to NMEA gps format
-  double long1 = base_long + magic_number_long * y ;
+  double long1 = base_long + magic_number_long * x ;
 
   double z = (int)long1 ;
   double long_ = (long1 -z) * 60 + (z*100) ;
@@ -144,20 +144,12 @@ string make_long_string(float y)
 }
 
 
-tuple<float, float> rotate_point(float cx, float cy, float angle, float px, float py){
-    double s = sin(angle*PI/180);
-    double c = cos(angle*PI/180);
+tuple<float, float> rotate_scale_translate_point(float px, float py){
 
-    px -= cx;
-    py -= cy;
+    float px_rst =  S_X * px * cos(ANGLE) + S_X * py * sin(ANGLE) + T_X;
+    float py_rst =  -S_Y * px * sin(ANGLE) + S_Y * py * cos(ANGLE) + T_Y;
 
-    double xnew = px * c - py * s;
-    double ynew = px * s + py * c;
-
-    px = xnew + cx;
-    py = ynew + cy;
-
-    tuple<float,float> returnValue (px, py);
+    tuple<float,float> returnValue (px_rst, py_rst);
     return returnValue;
 }
 
@@ -173,12 +165,12 @@ string build_nmea_RMC(float x, float y, float z){
   msg = msg + "A";
   msg = msg + ",";
   // lattitude
-  msg = msg + make_latt_string(x);
+  msg = msg + make_latt_string(y);
   msg = msg + ",";
   msg = msg + "N";
   msg = msg + ",";
   // longitude
-  msg = msg + make_long_string(y);
+  msg = msg + make_long_string(x);
   msg = msg + ",";
   msg = msg + "E";
   msg = msg + ",";
@@ -215,12 +207,12 @@ string build_nmea_GGA(float x, float y, float z){
   msg = msg + timeString;
   msg = msg + ",";
   // lattitude
-  msg = msg + make_latt_string(x);
+  msg = msg + make_latt_string(y);
   msg = msg + ",";
   msg = msg + "N";
   msg = msg + ",";
   // longitude
-  msg = msg + make_long_string(y);
+  msg = msg + make_long_string(x);
   msg = msg + ",";
   msg = msg + "E";
   msg = msg + ",";
@@ -231,7 +223,7 @@ string build_nmea_GGA(float x, float y, float z){
   msg = msg + "08";
   msg = msg + ",";
   // Horizontal Dilution of Precision (HDOP) (1 is best, 6 is okay, 10 is to bad to be used)
-  msg = msg + "1.50";
+  msg = msg + "0.50";
   msg = msg + ",";
   // height in meters above mean see level (in our case only height)
   std::string l(16, '\0');
@@ -272,7 +264,7 @@ string build_nmea_GSA(){
 
 string build_nmea_msg(float x, float y, float z)
 {
-  tuple<float, float> rotated_xy = rotate_point(0,0,ANGLE,x,y);
+  tuple<float, float> rotated_xy = rotate_scale_translate_point(y,x); // coordinate-switch intentional
   x = get<0>(rotated_xy);
   y = get<1>(rotated_xy);
   // TODO: height info not used yet, different msg ?!?

@@ -18,7 +18,7 @@ extern uint8_t node_address;
 #define MLAT_ACTIVE 1
 #endif
 
-#define NUMBER_ANCHORS 8
+#define NUMBER_ANCHORS 4
 // sets the influence the calculated gradient has on the position update
 // btw. we are in despreate need of some kind of filter !!
 #define SOLVER_STEP_SIZE 0.1

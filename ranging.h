@@ -6,7 +6,7 @@ extern "C" {
 }
 
 // offset of the ranging result in meters
-#define MAGIC_RANGE_OFFSET 153.7
+#define MAGIC_RANGE_OFFSET 153.7 - 0.869707882
 // size of the ranging frame without header
 #define NO_DATA_FRAME_SIZE 4
 
@@ -30,4 +30,3 @@ static const double speedOfLight = 299792458.0; // Speed of light in m/s
 double calculateDistanceFromTicks(uint64_t tprop);
 double calculate_range();
 void resetRangeVariables();
-

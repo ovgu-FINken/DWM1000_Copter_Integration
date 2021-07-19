@@ -15,10 +15,10 @@ extern uint8_t node_address;
 // Flag to turn off multilateration computation
 // multilateration uses an anytime, iterative solver that will consume computation power unless turned off
 #ifndef MLAT_ACTIVE
-#define MLAT_ACTIVE 1
+#define MLAT_ACTIVE 0
 #endif
 
-#define NUMBER_ANCHORS 4
+#define NUMBER_ANCHORS 8
 // sets the influence the calculated gradient has on the position update
 // btw. we are in despreate need of some kind of filter !!
 #define SOLVER_STEP_SIZE 0.1

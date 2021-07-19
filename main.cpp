@@ -50,7 +50,7 @@ int main() {
     uint8_t WriteBuffer[256+4];
 #if (ADDR != 1) && (ADDR < MLAT_BASE_ADDR)
     IRQqueue.call_every(RANGE_INTERVALL_US, startRanging);
-    //IRQqueue.call_every(50, send_position);
+    //IRQqueue.call_every(20, send_position);
 #if MLAT_ACTIVE
     IRQqueue.call_every((int)(1000/NMEA_UPDATE), send_nmea);
 #endif

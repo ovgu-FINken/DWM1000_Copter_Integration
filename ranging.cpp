@@ -54,6 +54,9 @@ double calculate_range() {
 
 	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
     return calculateDistanceFromTicks(tPropTick);
+
+	uart2.printf("%x, %x, %x, %x", tRound1, tReply1, tRound2, tReply2);
+	// todo: implement sending results via UART (especially the Round and Reply Times)
 }
 
 void resetRangeVariables() {

@@ -1,5 +1,6 @@
 #pragma once
 #include "inttypes.h"
+#include "serial_logic.h"
 
 extern "C" {
 #include "libdw1000.h"

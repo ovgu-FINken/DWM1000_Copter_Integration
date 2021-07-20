@@ -52,10 +52,11 @@ double calculate_range() {
 	calculateDeltaTime(&tStartReply2, &tEndReply2, &tReply2);
 	calculateDeltaTime(&tEndReply1, &tEndRound2, &tRound2);
 
-	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
-    return calculateDistanceFromTicks(tPropTick);
+	uart2.printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64 "\r\n", tRound1, tReply1, tRound2, tReply2);
 
-	uart2.printf("%x, %x, %x, %x", tRound1, tReply1, tRound2, tReply2);
+	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
+
+    return calculateDistanceFromTicks(tPropTick);
 	// todo: implement sending results via UART (especially the Round and Reply Times)
 }
 

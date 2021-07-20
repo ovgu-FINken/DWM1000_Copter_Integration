@@ -52,7 +52,7 @@ extern uint8_t node_address;
 // Baudrate of telemetry UART
 #define TELEMETRY_BAUD 38400
 
-// Baudrate of debug UART --> now gps uart
+// Baudrate of debug UART
 #define DEBUG_BAUD 115200
 
 // Disable/Enable UART-Echo (puts characters to output in UART-isr, only in telemetry UART)

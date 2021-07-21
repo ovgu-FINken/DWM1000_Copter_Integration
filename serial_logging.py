@@ -1,7 +1,7 @@
 import serial 
 
 ser = serial.Serial("/dev/ttyUSB0", baudrate=115200)
-myfile = open("log.txt", "a")
+myfile = open("log_1m_no2.txt", "a")
 
 for i in range(0, 1001):
     print(f"{i}/1001")

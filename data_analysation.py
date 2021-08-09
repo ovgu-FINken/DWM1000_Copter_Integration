@@ -125,4 +125,18 @@ sns.boxplot(error)
 plt.figure()
 sns.histplot(error)
 
+
+for df in g:
+    some_array = (df["tRound1"]-df["tReply1"]) - np.average(df["tRound2"]-df["tReply2"])
+    some_other_array = (some_array/(df["tRound1"] + df["tReply1"]))
+    print(np.average(some_array))
+    print(np.var(some_array))
+    print(np.average(some_other_array))
+    print("")
+
+plt.figure("clock speed offset ?")
+sns.histplot((df0["tRound1"]-df0["tReply1"]) - np.average(df0["tRound2"]-df0["tReply2"]))
+plt.figure("clock speed offset2 ? ")
+sns.boxplot((df0["tRound1"]-df0["tReply1"]) - np.average(df0["tRound2"]-df0["tReply2"]))
+
 plt.show()

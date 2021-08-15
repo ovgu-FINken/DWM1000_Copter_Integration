@@ -52,7 +52,10 @@ double calculate_range() {
 	calculateDeltaTime(&tStartReply2, &tEndReply2, &tReply2);
 	calculateDeltaTime(&tEndReply1, &tEndRound2, &tRound2);
 
-	uart2.printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64 "\r\n", tRound1, tReply1, tRound2, tReply2);
+	// uart2.printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64 "\r\n", tRound1, tReply1, tRound2, tReply2);
+	uart2.printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64 "\r\n", (tStartRound1.full), (tStartReply1.full), (tEndReply1.full), (tEndReply2.full), (tEndRound2.full));
+	// todo: send all the times
+
 
 	calculatePropagationFormula(tRound1, tReply1, tRound2, tReply2, tPropTick);
 

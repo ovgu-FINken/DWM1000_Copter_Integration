@@ -137,6 +137,15 @@ for df in g:
 plt.figure("clock speed offset ?")
 sns.histplot((df0["tRound1"]-df0["tReply1"]) - np.average(df0["tRound2"]-df0["tReply2"]))
 plt.figure("clock speed offset2 ? ")
-sns.boxplot((df0["tRound1"]-df0["tReply1"]) - np.average(df0["tRound2"]-df0["tReply2"]))
+sns.boxplot((df0["tRound1"]-df0["tReply1"]) - np.average(df0["tRound2"]-df0["tReply2"]))  # rethink this, i mean, why the average in the second half ?
+for df in g:
+    plt.figure()
+    shifted = []
+    non_shifted = []
+    for i in range(1, len(df["tReply2"])):
+        shifted.append((df["tReply2"][i-1]-df["tReply1"][i-1])/tsfreq)
+        non_shifted.append((df["tReply2"][i]-df["tReply1"][i])/tsfreq)
+
+    plt.plot(np.array(shifted)-np.array(non_shifted)) 
 
 plt.show()

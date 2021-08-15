@@ -2,10 +2,10 @@ import serial
 from datetime import datetime
 
 ser = serial.Serial("/dev/ttyUSB0", baudrate=115200)
-myfile = open("./data/times_2.00m_v0.txt", "a")
+myfile = open("./data/sync_error_test2.txt", "a")
 
-for i in range(0, 10001):
-    print(f"{i}/10001")
+for i in range(0, 5001):
+    print(f"{i}/5001")
     g = ser.readline()
     now = datetime.now().time()
     print(g)

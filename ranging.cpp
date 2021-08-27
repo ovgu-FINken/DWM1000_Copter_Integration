@@ -27,7 +27,7 @@ void calculateDeltaTime(dwTime_t* startTime, dwTime_t* endTime, uint64_t* result
 		*result = (end - start);
 	}
 	else{
-		*result = (end + (1099511627776-start)); 
+		*result = (end + (1099511627776-start));
 	}
 }
 

@@ -18,21 +18,21 @@ extern "C" {
 
 using namespace Eigen;
 
-uint8_t mlat_range_target = 1;
+uint8_t mlat_range_target = 133;
 void startRanging() {
     greenLed = 0;
     rxFrame.src = mlat_range_target;
     send_rp(RANGE_0);
-    switch(mlat_range_target) {
-        case 1:
-            mlat_range_target = MLAT_BASE_ADDR;
-            break;
-        case MLAT_BASE_ADDR + NUMBER_ANCHORS:  // max 8 Anchor-nodes
-            mlat_range_target = 1;
-            break;
-        default:
-            mlat_range_target++;
-    }
+    // switch(mlat_range_target) {
+    //     case 1:
+    //         mlat_range_target = MLAT_BASE_ADDR;
+    //         break;
+    //     case MLAT_BASE_ADDR + 6:  // NUMBER_ANCHORS  // max Anchor-nodes
+    //         mlat_range_target = 1;
+    //         break;
+    //     default:
+    //         mlat_range_target++;
+    // }
     greenLed = 1;
 }
 

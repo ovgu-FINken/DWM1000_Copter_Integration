@@ -17,13 +17,19 @@ df0 = pd.read_csv("./data/sync_error_test_boxed_mod3.txt", names=["tStartRound1"
 df1 = pd.read_csv("./data/sync_error_test_boxed_mod2.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 df2 = pd.read_csv("./data/sync_error_test_boxed_2.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 df3 = pd.read_csv("./data/sync_error_test_boxed_mod4.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
-print(df0)
+
+df4 = pd.read_csv("./data/mod2_one_hour_10hz_v2", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
+
+print(df4)
 
 time_sync_1 = df0["tStartRound1"]-df0["tStartReply1"]
 time_sync_2 = []
 time_sync_3 = []
 time_sync_4 = []
 time_sync_5 = []
+
+time_sync_new_2 = []
+
 for i in range(1, len(df0["tStartRound1"])):
     g = df0["tStartRound1"][i]-df0["tStartRound1"][i-1]
     h = df0["tStartReply1"][i]-df0["tStartReply1"][i-1]

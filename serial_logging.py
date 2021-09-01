@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 ser = serial.Serial("/dev/ttyUSB0", baudrate=115200)
-myfile = open("./data/mod3_one_hour_10hz_v3", "a")
+myfile = open("./data/mod3_one_hour_10hz_v6", "a")
 
 for i in range(0, 36001):
     print(f"{i}/36001")

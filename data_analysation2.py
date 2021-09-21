@@ -16,7 +16,7 @@ MAGIC_RANGE_OFFSET = 153.7 - 0.869707882 + 1.478
 df0 = pd.read_csv("./data/sync_error_test_boxed_mod3.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 df1 = pd.read_csv("./data/sync_error_test_boxed_mod2.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 df2 = pd.read_csv("./data/sync_error_test_boxed_2.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
-df3 = pd.read_csv("./data/sync_error_test_boxed_mod4.txt", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
+df3 = pd.read_csv("./data/mod1_one_hour_10hz_v1", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 
 df4 = pd.read_csv("./data/mod2_one_hour_10hz_v2", names=["tStartRound1", "tStartReply1", "tEndReply1", "tEndReply2", "tEndRound2"])
 
@@ -61,9 +61,9 @@ time_sync_3 = np.array(time_sync_3)
 time_sync_4 = np.array(time_sync_4)
 time_sync_5 = np.array(time_sync_5)
 
-plt.plot(time_sync_2)
-plt.plot(time_sync_3)
-plt.plot(time_sync_4)
+#plt.plot(time_sync_2)
+#plt.plot(time_sync_3)
+#plt.plot(time_sync_4)
 plt.plot(time_sync_5)
 
 print(time_sync_2)
